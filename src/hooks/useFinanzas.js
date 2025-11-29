@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 
-const API_URL = "[PEGAR_TU_URL_DE_APPS_SCRIPT_AQUI]";
+const API_URL = "https://script.google.com/macros/s/AKfycbxV8mm0e1YaBtdbMCRDeTljhrZ7Z16lAxTHSjCnAXUiPmo5MpKTCn8ZX23iYsxhr9JV/exec";
 
 export function useFinanzas() {
     const [transactions, setTransactions] = useState([]);
@@ -11,28 +11,13 @@ export function useFinanzas() {
         setLoading(true);
         setError(null);
         try {
-            // Simulating API call if URL is placeholder
-            if (API_URL.includes("PEGAR_TU_URL")) {
-                console.warn("API URL not set. Using mock data.");
-                // Mock data for development
-                const mockData = [
-                    { Fecha: "2023-11-28", Descripción: "Uber", Monto: -5.50, Categoría: "Transporte", Tipo: "Gasto" },
-                    { Fecha: "2023-11-28", Descripción: "Sueldo", Monto: 1500.00, Categoría: "Salario", Tipo: "Ingreso" },
-                    { Fecha: "2023-11-27", Descripción: "Supermercado", Monto: -45.20, Categoría: "Comida", Tipo: "Gasto" },
-                    { Fecha: "2023-11-26", Descripción: "Cine", Monto: -12.00, Categoría: "Entretenimiento", Tipo: "Gasto" },
-                ];
-                setTimeout(() => {
-                    setTransactions(mockData);
-                    setLoading(false);
-                }, 1000);
-                return;
-            }
-
             const response = await fetch(API_URL);
             if (!response.ok) throw new Error('Error fetching data');
             const data = await response.json();
+            console.log("Datos recibidos:", data);
             setTransactions(data);
         } catch (err) {
+            console.error("Error cargando datos:", err);
             setError(err.message);
         } finally {
             setLoading(false);
@@ -42,29 +27,24 @@ export function useFinanzas() {
     const addTransaction = async (transaction) => {
         setLoading(true);
         setError(null);
+
+        // Truco para Google Apps Script: Enviar como texto plano para evitar error de CORS
+        const config = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'text/plain;charset=utf-8',
+            },
+            body: JSON.stringify(transaction),
+        };
+
         try {
-            if (API_URL.includes("PEGAR_TU_URL")) {
-                // Mock post
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                const newTransaction = { ...transaction, Fecha: new Date().toISOString().split('T')[0] };
-                setTransactions(prev => [newTransaction, ...prev]);
-                return { success: true };
-            }
+            await fetch(API_URL, config);
 
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(transaction),
-            });
-
-            if (!response.ok) throw new Error('Error saving data');
-
-            // Optimistic update or refetch
-            await fetchTransactions();
+            // Actualización optimista
+            setTransactions(prev => [...prev, transaction]);
             return { success: true };
         } catch (err) {
+            console.error("Error guardando:", err);
             setError(err.message);
             return { success: false, error: err.message };
         } finally {
