@@ -1,16 +1,34 @@
-# React + Vite
+# Personal Finance Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Un dashboard moderno de finanzas personales construido con React, Vite y Tailwind CSS, que utiliza Google Sheets como backend gratuito y flexible.
 
-Currently, two official plugins are available:
+## Características
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+-   **Visualización de Datos:** Gráficos de gastos por categoría y tarjetas de resumen (Balance, Ingresos, Gastos).
+-   **Gestión de Transacciones:** Lista de movimientos recientes y formulario para agregar nuevos ingresos o gastos.
+-   **Backend en Google Sheets:** Integración directa con una hoja de cálculo para persistencia de datos.
+-   **Diseño Responsivo:** Interfaz limpia y adaptada a móviles.
 
-## React Compiler
+## Documentación Técnica
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Este proyecto tiene una integración personalizada con Google Apps Script.
 
-## Expanding the ESLint configuration
+-   [Guía de Integración con Google Sheets](./docs/GOOGLE_SHEETS_INTEGRATION.md): Detalles sobre la configuración del script, URL del endpoint y estructura de datos.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Instalación y Uso
+
+1.  Instalar dependencias:
+    ```bash
+    npm install
+    ```
+
+2.  Iniciar servidor de desarrollo:
+    ```bash
+    npm run dev
+    ```
+
+3.  Construir para producción:
+    ```bash
+    npm run build
+    ```
+
