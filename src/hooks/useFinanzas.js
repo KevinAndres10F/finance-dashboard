@@ -122,12 +122,21 @@ export function useFinanzas() {
         return { income, expenses, balance, chartData };
     }, [transactions]);
 
+    // Extraer categorías únicas de las transacciones + las por defecto
+    const categories = useMemo(() => {
+        const defaultCategories = ['Comida', 'Transporte', 'Entretenimiento', 'Salud', 'Servicios', 'Salario', 'Otros'];
+        const transactionCategories = transactions.map(t => t.Categoría).filter(Boolean);
+        // Unir y quitar duplicados
+        return [...new Set([...defaultCategories, ...transactionCategories])].sort();
+    }, [transactions]);
+
     return {
         transactions,
         loading,
         error,
         addTransaction,
         stats,
+        categories, // Exportamos las categorías dinámicas
         refresh: fetchTransactions
     };
 }
