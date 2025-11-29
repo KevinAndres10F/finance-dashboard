@@ -26,6 +26,7 @@ function App() {
     Tipo: 'Gasto'
   });
   const [submitStatus, setSubmitStatus] = useState('idle'); // idle, loading, success, error
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -58,6 +59,7 @@ function App() {
           Cuenta: 'Principal',
           Tipo: 'Gasto'
         });
+        setIsCustomCategory(false);
       }, 1500);
     } else {
       setSubmitStatus('error');
@@ -260,22 +262,50 @@ function App() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-slate-700">Categoría</label>
-                      <Input
-                        list="categories-list"
+                    {isCustomCategory ? (
+                      <div className="flex gap-2">
+                        <Input
+                          name="Categoría"
+                          value={formData.Categoría}
+                          onChange={handleInputChange}
+                          placeholder="Escribe la nueva categoría..."
+                          required
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsCustomCategory(false);
+                            setFormData(prev => ({ ...prev, Categoría: categories[0] || 'Otros' }));
+                          }}
+                          className="p-2 text-slate-400 hover:text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50"
+                          title="Volver a la lista"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <select
                         name="Categoría"
                         value={formData.Categoría}
-                        onChange={handleInputChange}
-                        placeholder="Selecciona o escribe..."
-                        required
-                      />
-                      <datalist id="categories-list">
+                        onChange={(e) => {
+                          if (e.target.value === '__NEW__') {
+                            setIsCustomCategory(true);
+                            setFormData(prev => ({ ...prev, Categoría: '' }));
+                          } else {
+                            handleInputChange(e);
+                          }
+                        }}
+                        className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                      >
                         {categories.map(cat => (
-                          <option key={cat} value={cat} />
+                          <option key={cat} value={cat}>{cat}</option>
                         ))}
-                      </datalist>
-                    </div>
+                        <option value="__NEW__" className="font-semibold text-indigo-600">
+                          + Nueva Categoría...
+                        </option>
+                      </select>
+                    )}
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-slate-700">Cuenta</label>
                       <select
