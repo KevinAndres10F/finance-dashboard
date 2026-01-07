@@ -12,7 +12,8 @@ import {
 } from 'recharts';
 import {
   Wallet, TrendingUp, TrendingDown, Plus, X,
-  DollarSign, Moon, Sun, Target, BarChart3, ListTodo
+  CreditCard, Calendar, Tag, DollarSign, Activity,
+  BarChart3, ListTodo, Moon, Sun, Target
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
@@ -34,7 +35,7 @@ function App() {
     Cuenta: 'Principal',
     Tipo: 'Gasto'
   });
-  const [submitStatus, setSubmitStatus] = useState('idle');
+  const [submitStatus, setSubmitStatus] = useState('idle'); // idle, loading, success, error
   const [isCustomCategory, setIsCustomCategory] = useState(false);
 
   // Aplicar dark mode
@@ -63,6 +64,7 @@ function App() {
     e.preventDefault();
     setSubmitStatus('loading');
 
+    // Convert Monto based on Tipo
     const amount = parseFloat(formData.Monto);
     const finalAmount = formData.Tipo === 'Gasto' ? -Math.abs(amount) : Math.abs(amount);
 
@@ -175,184 +177,92 @@ function App() {
         </AnimatePresence>
       </main>
 
-      {/* Mobile Floating Action Button */}
-      <button
-        onClick={() => setIsModalOpen(true)}
-        className="fixed bottom-6 right-6 md:hidden bg-slate-900 dark:bg-white text-white dark:text-slate-900 p-4 rounded-full shadow-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors z-40"
-      >
-        <Plus className="w-6 h-6" />
-      </button>
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <SummaryCard
+            title="Balance Total"
+            amount={stats.balance}
+            icon={Wallet}
+            trend={stats.balance >= 0 ? 'positive' : 'negative'}
+          />
+          <SummaryCard
+            title="Ingresos del Mes"
+            amount={stats.income}
+            icon={TrendingUp}
+            className="text-emerald-600 dark:text-emerald-400"
+            iconBg="bg-emerald-100 dark:bg-emerald-900/30"
+          />
+          <SummaryCard
+            title="Gastos del Mes"
+            amount={stats.expenses}
+            icon={TrendingDown}
+            className="text-rose-600 dark:text-rose-400"
+            iconBg="bg-rose-100 dark:bg-rose-900/30"
+          />
+        </div>
 
-      {/* Modal */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsModalOpen(false)}
-              className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-50"
-            />
-            <motion.div
-              initial={{ opacity: 0, y: 100, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 100, scale: 0.95 }}
-              className="fixed inset-0 flex items-center justify-center z-50 p-4 pointer-events-none"
-            >
-              <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-2xl shadow-xl pointer-events-auto overflow-hidden">
-                <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-700">
-                  <h3 className="text-lg font-semibold">Nueva Transacción</h3>
-                  <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
-                    <X className="w-5 h-5" />
-                  </button>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content: Transactions */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Últimas Transacciones</h2>
+              <Button variant="ghost" size="sm" onClick={() => setActiveTab('transactions')}>Ver todo</Button>
+            </div>
+
+            <Card className="p-0 overflow-hidden border-slate-200/60 dark:border-slate-700 shadow-sm">
+              {loading && transactions.length === 0 ? (
+                <div className="p-8 text-center text-slate-500 dark:text-slate-400">Cargando transacciones...</div>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {transactions.length === 0 ? (
+                    <div className="p-8 text-center text-slate-500 dark:text-slate-400">No hay transacciones recientes.</div>
+                  ) : (
+                    transactions.slice(0, 5).map((t, i) => (
+                      <TransactionItem key={i} transaction={t} />
+                    ))
+                  )}
                 </div>
+              )}
+            </Card>
+          </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Tipo</label>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, Tipo: 'Gasto' })}
-                        className={cn(
-                          "flex-1 py-2 rounded-lg text-sm font-medium transition-colors border",
-                          formData.Tipo === 'Gasto'
-                            ? "bg-rose-50 dark:bg-rose-900/30 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400"
-                            : "bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600"
-                        )}
+          {/* Sidebar: Chart */}
+          <div className="space-y-6">
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Gastos por Categoría</h2>
+            <Card className="min-h-[300px] flex flex-col items-center justify-center">
+              {stats.chartData.length > 0 ? (
+                <div className="w-full h-[250px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={stats.chartData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
                       >
-                        Gasto
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, Tipo: 'Ingreso' })}
-                        className={cn(
-                          "flex-1 py-2 rounded-lg text-sm font-medium transition-colors border",
-                          formData.Tipo === 'Ingreso'
-                            ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400"
-                            : "bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600"
-                        )}
-                      >
-                        Ingreso
-                      </button>
-                    </div>
-                  </div>
+                        {stats.chartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => `$${value.toFixed(2)}`} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="text-slate-400 dark:text-slate-500 text-sm">No hay datos de gastos aún</div>
+              )}
+            </Card>
+          </div>
+        </div>
+      </>
+    );
+  }
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Monto</label>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <Input
-                        type="number"
-                        step="0.01"
-                        name="Monto"
-                        value={formData.Monto}
-                        onChange={handleInputChange}
-                        placeholder="0.00"
-                        className="pl-9"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Descripción</label>
-                    <Input
-                      name="Descripción"
-                      value={formData.Descripción}
-                      onChange={handleInputChange}
-                      placeholder="Ej: Compras del super"
-                      required
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Categoría</label>
-                      {isCustomCategory ? (
-                        <div className="flex gap-2">
-                          <Input
-                            name="Categoría"
-                            value={formData.Categoría}
-                            onChange={handleInputChange}
-                            placeholder="Nueva categoría..."
-                            required
-                            autoFocus
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsCustomCategory(false);
-                              setFormData(prev => ({ ...prev, Categoría: categories[0] || 'Otros' }));
-                            }}
-                            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
-                            title="Volver a la lista"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <select
-                          name="Categoría"
-                          value={formData.Categoría}
-                          onChange={(e) => {
-                            if (e.target.value === '__NEW__') {
-                              setIsCustomCategory(true);
-                              setFormData(prev => ({ ...prev, Categoría: '' }));
-                            } else {
-                              handleInputChange(e);
-                            }
-                          }}
-                          className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
-                        >
-                          {categories.map(cat => (
-                            <option key={cat} value={cat}>{cat}</option>
-                          ))}
-                          <option value="__NEW__" className="font-semibold text-indigo-600">
-                            + Nueva Categoría...
-                          </option>
-                        </select>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Cuenta</label>
-                      <select
-                        name="Cuenta"
-                        value={formData.Cuenta}
-                        onChange={handleInputChange}
-                        className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
-                      >
-                        <option>Principal</option>
-                        <option>Ahorros</option>
-                        <option>Efectivo</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="pt-4">
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={submitStatus === 'loading'}
-                    >
-                      {submitStatus === 'loading' ? 'Guardando...' : 'Guardar Transacción'}
-                    </Button>
-                    {submitStatus === 'success' && (
-                      <p className="text-center text-emerald-600 dark:text-emerald-400 text-sm mt-2">¡Guardado con éxito!</p>
-                    )}
-                    {submitStatus === 'error' && (
-                      <p className="text-center text-rose-600 dark:text-rose-400 text-sm mt-2">Error al guardar.</p>
-                    )}
-                  </div>
-                </form>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </div>
-  );
+  return content;
 }
 
 function OverviewTab({ stats, transactions, loading }) {
@@ -439,6 +349,183 @@ function OverviewTab({ stats, transactions, loading }) {
         </div>
       </div>
     </>
+  );
+}
+
+      {/* Mobile Floating Action Button */}
+      <button
+        onClick={() => setIsModalOpen(true)}
+        className="fixed bottom-6 right-6 md:hidden bg-slate-900 text-white p-4 rounded-full shadow-lg hover:bg-slate-800 transition-colors z-40"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
+
+      {/* Modal */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsModalOpen(false)}
+              className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-50"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 100, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 100, scale: 0.95 }}
+              className="fixed inset-0 flex items-center justify-center z-50 p-4 pointer-events-none"
+            >
+              <div className="bg-white w-full max-w-md rounded-2xl shadow-xl pointer-events-auto overflow-hidden">
+                <div className="flex items-center justify-between p-6 border-b border-slate-100">
+                  <h3 className="text-lg font-semibold">Nueva Transacción</h3>
+                  <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Tipo</label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, Tipo: 'Gasto' })}
+                        className={cn(
+                          "flex-1 py-2 rounded-lg text-sm font-medium transition-colors border",
+                          formData.Tipo === 'Gasto'
+                            ? "bg-rose-50 border-rose-200 text-rose-700"
+                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                        )}
+                      >
+                        Gasto
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, Tipo: 'Ingreso' })}
+                        className={cn(
+                          "flex-1 py-2 rounded-lg text-sm font-medium transition-colors border",
+                          formData.Tipo === 'Ingreso'
+                            ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                        )}
+                      >
+                        Ingreso
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Monto</label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Input
+                        type="number"
+                        step="0.01"
+                        name="Monto"
+                        value={formData.Monto}
+                        onChange={handleInputChange}
+                        placeholder="0.00"
+                        className="pl-9"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Descripción</label>
+                    <Input
+                      name="Descripción"
+                      value={formData.Descripción}
+                      onChange={handleInputChange}
+                      placeholder="Ej: Compras del super"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {isCustomCategory ? (
+                      <div className="flex gap-2">
+                        <Input
+                          name="Categoría"
+                          value={formData.Categoría}
+                          onChange={handleInputChange}
+                          placeholder="Escribe la nueva categoría..."
+                          required
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsCustomCategory(false);
+                            setFormData(prev => ({ ...prev, Categoría: categories[0] || 'Otros' }));
+                          }}
+                          className="p-2 text-slate-400 hover:text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50"
+                          title="Volver a la lista"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <select
+                        name="Categoría"
+                        value={formData.Categoría}
+                        onChange={(e) => {
+                          if (e.target.value === '__NEW__') {
+                            setIsCustomCategory(true);
+                            setFormData(prev => ({ ...prev, Categoría: '' }));
+                          } else {
+                            handleInputChange(e);
+                          }
+                        }}
+                        className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                      >
+                        {categories.map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                        <option value="__NEW__" className="font-semibold text-indigo-600">
+                          + Nueva Categoría...
+                        </option>
+                      </select>
+                    )}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-700">Cuenta</label>
+                      <select
+                        name="Cuenta"
+                        value={formData.Cuenta}
+                        onChange={handleInputChange}
+                        className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                      >
+                        <option>Principal</option>
+                        <option>Ahorros</option>
+                        <option>Efectivo</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="pt-4">
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={submitStatus === 'loading'}
+                    >
+                      {submitStatus === 'loading' ? 'Guardando...' : 'Guardar Transacción'}
+                    </Button>
+                    {submitStatus === 'success' && (
+                      <p className="text-center text-emerald-600 text-sm mt-2">¡Guardado con éxito!</p>
+                    )}
+                    {submitStatus === 'error' && (
+                      <p className="text-center text-rose-600 text-sm mt-2">Error al guardar.</p>
+                    )}
+                  </div>
+                </form>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
