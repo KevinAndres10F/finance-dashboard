@@ -1,15 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Plus, Target, AlertTriangle, TrendingUp, X } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useBudgets } from '../hooks/useBudgets';
 
 export function Budgets({ transactions, categories }) {
-  const [budgets, setBudgets] = useState(() => {
-    const saved = localStorage.getItem('finance-budgets');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const { budgetData, addBudget, removeBudget } = useBudgets(transactions);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     category: categories[0] || 'Comida',
@@ -17,53 +15,12 @@ export function Budgets({ transactions, categories }) {
     period: 'monthly'
   });
 
-  // Calcular gastos actuales por categoría
-  const currentMonthExpenses = useMemo(() => {
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    return transactions
-      .filter(t => t.Fecha?.startsWith(currentMonth) && (t.Tipo === 'Gasto' || t.Monto < 0))
-      .reduce((acc, t) => {
-        const cat = t.Categoría || 'Otros';
-        acc[cat] = (acc[cat] || 0) + Math.abs(Number(t.Monto));
-        return acc;
-      }, {});
-  }, [transactions]);
-
   const handleSubmit = (e) => {
     e.preventDefault();
-    const newBudget = {
-      id: Date.now(),
-      category: formData.category,
-      limit: parseFloat(formData.limit),
-      period: formData.period
-    };
-    const updatedBudgets = [...budgets, newBudget];
-    setBudgets(updatedBudgets);
-    localStorage.setItem('finance-budgets', JSON.stringify(updatedBudgets));
+    addBudget({ category: formData.category, limit: parseFloat(formData.limit), period: formData.period });
     setIsModalOpen(false);
     setFormData({ category: categories[0] || 'Comida', limit: '', period: 'monthly' });
   };
-
-  const removeBudget = (id) => {
-    const updatedBudgets = budgets.filter(b => b.id !== id);
-    setBudgets(updatedBudgets);
-    localStorage.setItem('finance-budgets', JSON.stringify(updatedBudgets));
-  };
-
-  const budgetData = budgets.map(budget => {
-    const spent = currentMonthExpenses[budget.category] || 0;
-    const percentage = (spent / budget.limit) * 100;
-    const remaining = budget.limit - spent;
-    const status = percentage >= 100 ? 'exceeded' : percentage >= 80 ? 'warning' : 'good';
-
-    return {
-      ...budget,
-      spent,
-      percentage: Math.min(percentage, 100),
-      remaining,
-      status
-    };
-  });
 
   return (
     <div className="space-y-6">
@@ -114,7 +71,6 @@ export function Budgets({ transactions, categories }) {
                 </button>
               </div>
 
-              {/* Progress bar */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-600 dark:text-slate-300">
@@ -129,7 +85,7 @@ export function Budgets({ transactions, categories }) {
                     {budget.percentage.toFixed(0)}%
                   </span>
                 </div>
-                
+
                 <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                   <div
                     className={cn(
@@ -166,7 +122,6 @@ export function Budgets({ transactions, categories }) {
         </div>
       )}
 
-      {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <Card className="w-full max-w-md p-6">
