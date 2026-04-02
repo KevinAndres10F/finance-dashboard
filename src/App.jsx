@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useFinanzas } from './hooks/useFinanzas';
+import { useBudgets } from './hooks/useBudgets';
 import { Card } from './components/ui/Card';
 import { Button } from './components/ui/Button';
 import { Input } from './components/ui/Input';
@@ -7,6 +8,8 @@ import { Tabs } from './components/Tabs';
 import { Statistics } from './components/Statistics';
 import { TransactionList } from './components/TransactionList';
 import { Budgets } from './components/Budgets';
+import { BudgetAlertBanner } from './components/BudgetAlertBanner';
+import { InsightsPanel } from './components/InsightsPanel';
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend
 } from 'recharts';
@@ -21,6 +24,7 @@ const COLORS = ['#10b981', '#f43f5e', '#3b82f6', '#f59e0b', '#8b5cf6', '#64748b'
 
 function App() {
   const { transactions, loading, error, addTransaction, stats, categories } = useFinanzas();
+  const { budgetData, budgetsInWarning, budgetsExceeded } = useBudgets(transactions);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [darkMode, setDarkMode] = useState(() => {
@@ -119,6 +123,8 @@ function App() {
         </div>
       </header>
 
+      <BudgetAlertBanner budgetsInWarning={budgetsInWarning} budgetsExceeded={budgetsExceeded} />
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Navigation Tabs */}
         <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
@@ -133,7 +139,7 @@ function App() {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.2 }}
             >
-              <OverviewTab stats={stats} transactions={transactions} loading={loading} />
+              <OverviewTab stats={stats} transactions={transactions} loading={loading} budgetData={budgetData} />
             </motion.div>
           )}
 
@@ -157,7 +163,7 @@ function App() {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.2 }}
             >
-              <Statistics transactions={transactions} />
+              <Statistics transactions={transactions} budgetData={budgetData} />
             </motion.div>
           )}
 
@@ -355,7 +361,7 @@ function App() {
   );
 }
 
-function OverviewTab({ stats, transactions, loading }) {
+function OverviewTab({ stats, transactions, loading, budgetData }) {
   return (
     <>
       {/* Summary Cards */}
@@ -381,6 +387,8 @@ function OverviewTab({ stats, transactions, loading }) {
           iconBg="bg-rose-100 dark:bg-rose-900/30"
         />
       </div>
+
+      <InsightsPanel transactions={transactions} budgetData={budgetData} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Content: Transactions */}

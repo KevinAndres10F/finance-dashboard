@@ -96,17 +96,20 @@ export function useFinanzas() {
     }, []);
 
     const stats = useMemo(() => {
-        const income = transactions
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const currentMonthTxs = transactions.filter(t => t.Fecha?.startsWith(currentMonth));
+
+        const income = currentMonthTxs
             .filter(t => t.Tipo === 'Ingreso' || t.Monto > 0)
             .reduce((acc, curr) => acc + Number(curr.Monto), 0);
 
-        const expenses = transactions
+        const expenses = currentMonthTxs
             .filter(t => t.Tipo === 'Gasto' || t.Monto < 0)
             .reduce((acc, curr) => acc + Math.abs(Number(curr.Monto)), 0);
 
         const balance = income - expenses;
 
-        const expensesByCategory = transactions
+        const expensesByCategory = currentMonthTxs
             .filter(t => t.Tipo === 'Gasto' || t.Monto < 0)
             .reduce((acc, curr) => {
                 const cat = curr.Categoría || 'Otros';

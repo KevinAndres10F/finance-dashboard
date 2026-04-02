@@ -4,12 +4,12 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
-import { TrendingUp, TrendingDown, Target, Calendar, PiggyBank, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, Calendar, PiggyBank, AlertCircle, Rocket } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 const COLORS = ['#10b981', '#f43f5e', '#3b82f6', '#f59e0b', '#8b5cf6', '#64748b', '#ec4899', '#06b6d4'];
 
-export function Statistics({ transactions }) {
+export function Statistics({ transactions, budgetData = [] }) {
   const stats = useMemo(() => {
     // Agrupar por mes
     const monthlyData = transactions.reduce((acc, t) => {
@@ -85,12 +85,15 @@ export function Statistics({ transactions }) {
     const expensesChange = lastExpenses > 0 ? ((currentExpenses - lastExpenses) / lastExpenses) * 100 : 0;
 
     // Métricas adicionales
+    const now = new Date();
     const savingsRate = currentIncome > 0 ? ((currentIncome - currentExpenses) / currentIncome) * 100 : 0;
-    const avgDailyExpense = currentExpenses / new Date().getDate();
+    const dayOfMonth = now.getDate();
+    const avgDailyExpense = currentExpenses / dayOfMonth;
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const projectedExpense = dayOfMonth > 0 ? (currentExpenses / dayOfMonth) * daysInMonth : 0;
 
     // Análisis semanal (últimas 4 semanas)
     const weeklyData = [];
-    const now = new Date();
     for (let i = 3; i >= 0; i--) {
       const weekEnd = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
       const weekStart = new Date(weekEnd.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -121,7 +124,10 @@ export function Statistics({ transactions }) {
       },
       metrics: {
         savingsRate,
-        avgDailyExpense
+        avgDailyExpense,
+        projectedExpense,
+        daysInMonth,
+        dayOfMonth
       },
       weeklyData
     };
@@ -130,7 +136,7 @@ export function Statistics({ transactions }) {
   return (
     <div className="space-y-6">
       {/* Métricas Clave */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <MetricCard
           title="Tasa de Ahorro"
           value={`${stats.metrics.savingsRate.toFixed(1)}%`}
@@ -142,6 +148,12 @@ export function Statistics({ transactions }) {
           value={`$${stats.metrics.avgDailyExpense.toFixed(2)}`}
           icon={Calendar}
           className="text-blue-600"
+        />
+        <MetricCard
+          title="Proyección Mensual"
+          value={`$${stats.metrics.projectedExpense.toFixed(2)}`}
+          icon={Rocket}
+          trend={stats.metrics.projectedExpense <= stats.comparison.currentExpenses * (stats.metrics.daysInMonth / Math.max(stats.metrics.dayOfMonth, 1)) ? 'positive' : 'neutral'}
         />
         <MetricCard
           title="Cambio en Ingresos"
@@ -279,10 +291,10 @@ export function Statistics({ transactions }) {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="week" stroke="#64748b" style={{ fontSize: '12px' }} />
                 <YAxis stroke="#64748b" style={{ fontSize: '12px' }} />
-                <Tooltip 
+                <Tooltip
                   formatter={(value) => `$${value.toFixed(2)}`}
-                  contentStyle={{ 
-                    backgroundColor: 'white', 
+                  contentStyle={{
+                    backgroundColor: 'white',
                     border: '1px solid #e2e8f0',
                     borderRadius: '8px'
                   }}
@@ -292,6 +304,42 @@ export function Statistics({ transactions }) {
             </ResponsiveContainer>
           </div>
         </Card>
+
+        {/* Presupuesto vs. Real */}
+        {budgetData.length > 0 && (
+          <Card className="p-6 lg:col-span-2">
+            <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
+              Presupuesto vs. Gastado (mes actual)
+            </h3>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={budgetData.map(b => ({ name: b.category, Presupuesto: b.limit, Gastado: b.spent }))}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="name" stroke="#64748b" style={{ fontSize: '12px' }} />
+                  <YAxis stroke="#64748b" style={{ fontSize: '12px' }} />
+                  <Tooltip
+                    formatter={(value) => `$${value.toFixed(2)}`}
+                    contentStyle={{
+                      backgroundColor: 'white',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="Presupuesto" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Gastado" radius={[4, 4, 0, 0]}>
+                    {budgetData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={entry.status === 'exceeded' ? '#f43f5e' : entry.status === 'warning' ? '#f59e0b' : '#10b981'}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+        )}
       </div>
     </div>
   );
