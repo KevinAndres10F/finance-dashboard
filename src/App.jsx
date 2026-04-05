@@ -17,6 +17,7 @@ import { GamificationDashboard } from './components/GamificationDashboard';
 import { AchievementToast } from './components/AchievementToast';
 import { useGamification } from './hooks/useGamification';
 import { ConnectionsPanel } from './components/ConnectionsPanel';
+import { Dashboard } from './components/Dashboard';
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend
 } from 'recharts';
@@ -195,7 +196,7 @@ function App() {
               exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.18 }}
             >
-              <OverviewTab stats={stats} transactions={transactions} loading={loading} budgetData={budgetData} />
+              <Dashboard stats={stats} transactions={transactions} budgetData={budgetData} />
             </motion.div>
           )}
 
