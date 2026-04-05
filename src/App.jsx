@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useFinanzas } from './hooks/useFinanzas';
 import { useBudgets } from './hooks/useBudgets';
+import { useDeviceAuth } from './hooks/useDeviceAuth';
 import { Card } from './components/ui/Card';
 import { Button } from './components/ui/Button';
 import { Input } from './components/ui/Input';
@@ -10,12 +11,18 @@ import { TransactionList } from './components/TransactionList';
 import { Budgets } from './components/Budgets';
 import { BudgetAlertBanner } from './components/BudgetAlertBanner';
 import { InsightsPanel } from './components/InsightsPanel';
+import { LockScreen } from './components/LockScreen';
+import { AuthSetup } from './components/AuthSetup';
+import { GamificationDashboard } from './components/GamificationDashboard';
+import { AchievementToast } from './components/AchievementToast';
+import { useGamification } from './hooks/useGamification';
+import { ConnectionsPanel } from './components/ConnectionsPanel';
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend
 } from 'recharts';
 import {
   Wallet, TrendingUp, TrendingDown, Plus, X,
-  DollarSign, Moon, Sun, Target, BarChart3, ListTodo
+  DollarSign, Moon, Sun, Target, BarChart3, ListTodo, LogOut, Trophy, Flame, Link
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
@@ -23,8 +30,10 @@ import { cn } from './lib/utils';
 const COLORS = ['#10b981', '#f43f5e', '#3b82f6', '#f59e0b', '#8b5cf6', '#64748b'];
 
 function App() {
+  const auth = useDeviceAuth();
   const { transactions, loading, error, addTransaction, stats, categories } = useFinanzas();
   const { budgetData, budgetsInWarning, budgetsExceeded } = useBudgets(transactions);
+  const gamification = useGamification(transactions, budgetData);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [darkMode, setDarkMode] = useState(() => {
@@ -52,11 +61,18 @@ function App() {
   }, [darkMode]);
 
   const tabs = [
-    { id: 'overview', label: 'Resumen', icon: Wallet },
-    { id: 'transactions', label: 'Transacciones', icon: ListTodo },
-    { id: 'statistics', label: 'Estadísticas', icon: BarChart3 },
-    { id: 'budgets', label: 'Presupuestos', icon: Target }
+    { id: 'overview',      label: 'Resumen',       icon: Wallet },
+    { id: 'transactions',  label: 'Transacciones', icon: ListTodo },
+    { id: 'statistics',    label: 'Estadísticas',  icon: BarChart3 },
+    { id: 'budgets',       label: 'Presupuestos',  icon: Target },
+    { id: 'gamification',  label: 'Logros',        icon: Trophy },
+    { id: 'connections',   label: 'Conexiones',    icon: Link },
   ];
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    gamification.visitSection(tab);
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -95,16 +111,47 @@ function App() {
     }
   };
 
+  // ── Auth gate ────────────────────────────────────────────────────────
+  if (auth.status === 'setup-required') {
+    return (
+      <AuthSetup
+        supportsWebAuthn={auth.supportsWebAuthn}
+        error={auth.error}
+        onSetupBiometric={auth.setupBiometric}
+        onSetupPin={auth.setupFallbackPin}
+      />
+    );
+  }
+  if (auth.status === 'locked') {
+    return (
+      <LockScreen
+        authType={auth.authType}
+        error={auth.error}
+        supportsWebAuthn={auth.supportsWebAuthn}
+        onUnlock={auth.unlock}
+        onUnlockPin={auth.unlockWithPin}
+      />
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-sans pb-20 md:pb-10 transition-colors">
+    <div className="app-bg text-slate-900 dark:text-white font-sans pb-20 md:pb-10 transition-colors">
       {/* Header */}
-      <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-10">
+      <header className="glass-header sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="bg-slate-900 dark:bg-white p-2 rounded-lg">
+          <div className="flex items-center gap-3">
+            <div className="bg-slate-900/90 dark:bg-white/90 p-2 rounded-xl shadow-sm">
               <Wallet className="w-5 h-5 text-white dark:text-slate-900" />
             </div>
             <h1 className="text-xl font-bold tracking-tight">Finanzas</h1>
+            {gamification.streak > 0 && (
+              <div className="hidden sm:flex items-center gap-1 bg-amber-50/80 dark:bg-amber-900/30 border border-amber-200/60 dark:border-amber-700/30 px-2.5 py-1 rounded-full">
+                <Flame className="w-3.5 h-3.5 text-amber-500 streak-pulse" />
+                <span className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                  {gamification.streak}
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -115,7 +162,16 @@ function App() {
             >
               {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </Button>
-            <Button onClick={() => setIsModalOpen(true)} className="gap-2 shadow-sm">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={auth.lock}
+              className="p-2"
+              title="Bloquear app"
+            >
+              <LogOut className="w-5 h-5" />
+            </Button>
+            <Button onClick={() => setIsModalOpen(true)} className="gap-2">
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">Nueva Transacción</span>
             </Button>
@@ -125,19 +181,19 @@ function App() {
 
       <BudgetAlertBanner budgetsInWarning={budgetsInWarning} budgetsExceeded={budgetsExceeded} />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {/* Navigation Tabs */}
-        <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+        <Tabs tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
 
         {/* Tab Content */}
         <AnimatePresence mode="wait">
           {activeTab === 'overview' && (
             <motion.div
               key="overview"
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.2 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.18 }}
             >
               <OverviewTab stats={stats} transactions={transactions} loading={loading} budgetData={budgetData} />
             </motion.div>
@@ -146,10 +202,10 @@ function App() {
           {activeTab === 'transactions' && (
             <motion.div
               key="transactions"
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.2 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.18 }}
             >
               <TransactionList transactions={transactions} />
             </motion.div>
@@ -158,10 +214,10 @@ function App() {
           {activeTab === 'statistics' && (
             <motion.div
               key="statistics"
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.2 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.18 }}
             >
               <Statistics transactions={transactions} budgetData={budgetData} />
             </motion.div>
@@ -170,21 +226,55 @@ function App() {
           {activeTab === 'budgets' && (
             <motion.div
               key="budgets"
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.2 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.18 }}
             >
               <Budgets transactions={transactions} categories={categories} />
+            </motion.div>
+          )}
+
+          {activeTab === 'gamification' && (
+            <motion.div
+              key="gamification"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.18 }}
+            >
+              <GamificationDashboard
+                xp={gamification.xp}
+                level={gamification.level}
+                streak={gamification.streak}
+                longestStreak={gamification.longestStreak}
+                badges={gamification.badges}
+                missions={gamification.missions}
+              />
+            </motion.div>
+          )}
+
+          {activeTab === 'connections' && (
+            <motion.div
+              key="connections"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.18 }}
+            >
+              <ConnectionsTab />
             </motion.div>
           )}
         </AnimatePresence>
       </main>
 
+      {/* Achievement Toast */}
+      <AchievementToast badge={gamification.newBadge} onDismiss={gamification.dismissBadge} />
+
       {/* Mobile Floating Action Button */}
       <button
         onClick={() => setIsModalOpen(true)}
-        className="fixed bottom-6 right-6 md:hidden bg-slate-900 dark:bg-white text-white dark:text-slate-900 p-4 rounded-full shadow-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors z-40"
+        className="fixed bottom-6 right-6 md:hidden bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 p-4 rounded-full shadow-lg hover:shadow-xl transition-all z-40 backdrop-blur-sm"
       >
         <Plus className="w-6 h-6" />
       </button>
@@ -201,13 +291,14 @@ function App() {
               className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-50"
             />
             <motion.div
-              initial={{ opacity: 0, y: 100, scale: 0.95 }}
+              initial={{ opacity: 0, y: 40, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 100, scale: 0.95 }}
+              exit={{ opacity: 0, y: 40, scale: 0.96 }}
+              transition={{ type: 'spring', bounce: 0.25, duration: 0.4 }}
               className="fixed inset-0 flex items-center justify-center z-50 p-4 pointer-events-none"
             >
-              <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-2xl shadow-xl pointer-events-auto overflow-hidden">
-                <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-700">
+              <div className="glass w-full max-w-md rounded-2xl pointer-events-auto overflow-hidden">
+                <div className="flex items-center justify-between p-6 border-b border-white/30 dark:border-white/10">
                   <h3 className="text-lg font-semibold">Nueva Transacción</h3>
                   <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
                     <X className="w-5 h-5" />
@@ -498,6 +589,10 @@ function TransactionItem({ transaction }) {
       </div>
     </div>
   );
+}
+
+function ConnectionsTab() {
+  return <ConnectionsPanel />;
 }
 
 export default App;

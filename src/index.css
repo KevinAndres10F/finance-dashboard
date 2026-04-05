@@ -25,6 +25,98 @@
   --color-rose-700: #be123c;
 }
 
+/* ─── Liquid Glass Tokens ─────────────────────────────────────── */
+:root {
+  --glass-bg:        rgba(255, 255, 255, 0.68);
+  --glass-bg-hover:  rgba(255, 255, 255, 0.80);
+  --glass-border:    rgba(255, 255, 255, 0.45);
+  --glass-shadow:    0 4px 24px rgba(0, 0, 0, 0.07), 0 1px 4px rgba(0, 0, 0, 0.04);
+  --glass-shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.10), 0 2px 8px rgba(0, 0, 0, 0.06);
+  --blur-sm:         blur(8px);
+  --blur-md:         blur(16px);
+  --blur-xl:         blur(28px);
+
+  /* Gradient mesh nodes */
+  --mesh-1: radial-gradient(ellipse at 15% 15%,  #dbeafe 0%, transparent 55%);
+  --mesh-2: radial-gradient(ellipse at 85% 10%,  #d1fae5 0%, transparent 55%);
+  --mesh-3: radial-gradient(ellipse at 50% 85%,  #ede9fe 0%, transparent 55%);
+  --mesh-4: radial-gradient(ellipse at 90% 80%,  #fce7f3 0%, transparent 45%);
+  --mesh-bg: #f0f4ff;
+}
+
+.dark {
+  --glass-bg:        rgba(15, 23, 42, 0.70);
+  --glass-bg-hover:  rgba(15, 23, 42, 0.82);
+  --glass-border:    rgba(255, 255, 255, 0.08);
+  --glass-shadow:    0 4px 24px rgba(0, 0, 0, 0.35), 0 1px 4px rgba(0, 0, 0, 0.2);
+  --glass-shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.50), 0 2px 8px rgba(0, 0, 0, 0.3);
+
+  --mesh-1: radial-gradient(ellipse at 15% 15%,  rgba(59, 130, 246, 0.12) 0%, transparent 55%);
+  --mesh-2: radial-gradient(ellipse at 85% 10%,  rgba(16, 185, 129, 0.10) 0%, transparent 55%);
+  --mesh-3: radial-gradient(ellipse at 50% 85%,  rgba(139, 92, 246, 0.10) 0%, transparent 55%);
+  --mesh-4: radial-gradient(ellipse at 90% 80%,  rgba(236, 72, 153, 0.08) 0%, transparent 45%);
+  --mesh-bg: #080f1f;
+}
+
+/* ─── App mesh background ────────────────────────────────────── */
+.app-bg {
+  background:
+    var(--mesh-1),
+    var(--mesh-2),
+    var(--mesh-3),
+    var(--mesh-4),
+    var(--mesh-bg);
+  min-height: 100vh;
+}
+
+/* ─── Glass utility classes ─────────────────────────────────── */
+.glass {
+  background:        var(--glass-bg);
+  backdrop-filter:   var(--blur-md);
+  -webkit-backdrop-filter: var(--blur-md);
+  border:            1px solid var(--glass-border);
+  box-shadow:        var(--glass-shadow);
+}
+
+.glass-hover {
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.glass-hover:hover {
+  background:  var(--glass-bg-hover);
+  box-shadow:  var(--glass-shadow-lg);
+  transform:   translateY(-1px);
+}
+
+.glass-header {
+  background:       var(--glass-bg);
+  backdrop-filter:  var(--blur-xl);
+  -webkit-backdrop-filter: var(--blur-xl);
+  border-bottom:    1px solid var(--glass-border);
+}
+
+/* ─── Number counter animation ───────────────────────────────── */
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-count { animation: count-up 0.4s ease forwards; }
+
+/* ─── Streak pulse ───────────────────────────────────────────── */
+@keyframes streak-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+.streak-pulse { animation: streak-pulse 2s ease-in-out infinite; }
+
+/* ─── Achievement pop ────────────────────────────────────────── */
+@keyframes badge-pop {
+  0%   { transform: scale(0.6) rotate(-8deg); opacity: 0; }
+  70%  { transform: scale(1.1) rotate(2deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); }
+}
+.badge-pop { animation: badge-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
 body {
   @apply bg-slate-50 text-slate-900;
+  background: var(--mesh-bg);
 }
