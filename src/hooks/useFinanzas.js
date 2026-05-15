@@ -2,10 +2,27 @@ import { useState, useEffect, useMemo } from 'react';
 
 const API_URL = "https://script.google.com/macros/s/AKfycbwvT2nZBMTsFi3do4b1rMzQstVxcQkJQNPZy7NGmdpxDUZG8QaUZmdpwHH6-m_NwROe/exec";
 
+const LOCAL_TX_KEY = 'finance-local-transactions';
+const LOCAL_DELETED_KEY = 'finance-deleted-tx-keys';
+const LOCAL_OVERRIDES_KEY = 'finance-tx-overrides';
+
+function loadLocal(k, fallback) {
+  try { return JSON.parse(localStorage.getItem(k)) || fallback; } catch { return fallback; }
+}
+function saveLocal(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+
+function txStableKey(t, idx = 0) {
+  if (t.id) return String(t.id);
+  return `${t.Fecha || ''}|${t.Descripción || ''}|${t.Monto || 0}|${t.Categoría || ''}|${idx}`;
+}
+
 export function useFinanzas() {
-    const [transactions, setTransactions] = useState([]);
+    const [remote, setRemote] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [localTxs, setLocalTxs] = useState(() => loadLocal(LOCAL_TX_KEY, []));
+    const [deletedKeys, setDeletedKeys] = useState(() => loadLocal(LOCAL_DELETED_KEY, []));
+    const [overrides, setOverrides] = useState(() => loadLocal(LOCAL_OVERRIDES_KEY, {}));
 
     const fetchTransactions = async () => {
         setLoading(true);
@@ -13,31 +30,18 @@ export function useFinanzas() {
         try {
             const response = await fetch(API_URL);
             if (!response.ok) throw new Error('Error fetching data');
-
             const text = await response.text();
-            try {
-                const rawData = JSON.parse(text);
-                console.log("Datos crudos recibidos:", rawData);
-
-                // Normalizar datos para asegurar compatibilidad con el frontend
-                // El script devuelve lo que hay en las cabeceras de la hoja.
-                // Mapeamos posibles variaciones a las claves que usa la app
-                const normalizedData = rawData.map(item => ({
-                    ...item,
-                    Categoría: item.Categoría || item.Categoria || 'Otros',
-                    Descripción: item.Descripción || item.Descripcion || item.Descripcion || '',
-                    Monto: Number(item.Monto) || 0,
-                    Tipo: item.Tipo || 'Gasto',
-                    Fecha: item.Fecha || '',
-                    Cuenta: item.Cuenta || 'Principal'
-                }));
-
-                setTransactions(normalizedData);
-            } catch (e) {
-                console.error("Error parseando JSON:", e);
-                console.log("Respuesta recibida (no es JSON):", text);
-                throw new Error("La respuesta del servidor no es un JSON válido. Revisa la consola.");
-            }
+            const rawData = JSON.parse(text);
+            const normalizedData = rawData.map(item => ({
+                ...item,
+                Categoría: item.Categoría || item.Categoria || 'Otros',
+                Descripción: item.Descripción || item.Descripcion || '',
+                Monto: Number(item.Monto) || 0,
+                Tipo: item.Tipo || 'Gasto',
+                Fecha: item.Fecha || '',
+                Cuenta: item.Cuenta || 'Principal'
+            }));
+            setRemote(normalizedData);
         } catch (err) {
             console.error("Error cargando datos:", err);
             setError(err.message);
@@ -47,53 +51,89 @@ export function useFinanzas() {
     };
 
     const addTransaction = async (transaction) => {
-        setLoading(true);
         setError(null);
+        const finalTx = {
+            ...transaction,
+            Fecha: transaction.Fecha || new Date().toISOString().split('T')[0],
+        };
 
-        // Payload adaptado EXACTAMENTE a tu script de Google Apps Script
-        // Tu script espera: datos.monto, datos.tipo, datos.descripcion, datos.comercio, datos.categoria, datos.cuenta
         const payload = {
-            monto: transaction.Monto,
-            tipo: transaction.Tipo,
-            descripcion: transaction.Descripción,
-            comercio: transaction.Descripción, // Usamos la descripción como comercio
-            categoria: transaction.Categoría,
-            cuenta: transaction.Cuenta
+            monto: finalTx.Monto,
+            tipo: finalTx.Tipo,
+            descripcion: finalTx.Descripción,
+            comercio: finalTx.Descripción,
+            categoria: finalTx.Categoría,
+            cuenta: finalTx.Cuenta,
         };
 
-        // Truco para Google Apps Script: Enviar como texto plano para evitar error de CORS
-        const config = {
-            method: 'POST',
-            // mode: 'no-cors', // ELIMINADO: Usamos text/plain para evitar preflight, pero permitimos leer respuesta
-            headers: {
-                'Content-Type': 'text/plain;charset=utf-8',
-            },
-            body: JSON.stringify(payload),
-        };
+        // Optimistic update local
+        const localId = 'local:' + (Date.now() + Math.random());
+        const optimistic = { ...finalTx, id: localId, _local: true };
+        const nextLocal = [...localTxs, optimistic];
+        setLocalTxs(nextLocal); saveLocal(LOCAL_TX_KEY, nextLocal);
 
         try {
-            await fetch(API_URL, config);
-
-            // En modo no-cors, no podemos ver la respuesta, así que asumimos éxito si no hay error de red
-            // Actualización optimista
-            const newTransaction = {
-                ...transaction,
-                Fecha: new Date().toISOString().split('T')[0] // La fecha la pone el script, pero la simulamos para la UI
-            };
-            setTransactions(prev => [...prev, newTransaction]);
+            await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload),
+            });
             return { success: true };
         } catch (err) {
             console.error("Error guardando:", err);
             setError(err.message);
             return { success: false, error: err.message };
-        } finally {
-            setLoading(false);
         }
     };
 
-    useEffect(() => {
-        fetchTransactions();
-    }, []);
+    const updateTransaction = (key, patch) => {
+        // Para tx remotas: guardar override por key
+        // Para tx locales: actualizar directamente la lista
+        if (String(key).startsWith('local:')) {
+            const next = localTxs.map(t => t.id === key ? { ...t, ...patch } : t);
+            setLocalTxs(next); saveLocal(LOCAL_TX_KEY, next);
+            return;
+        }
+        const nextOv = { ...overrides, [key]: { ...(overrides[key] || {}), ...patch } };
+        setOverrides(nextOv); saveLocal(LOCAL_OVERRIDES_KEY, nextOv);
+    };
+
+    const deleteTransaction = (key) => {
+        if (String(key).startsWith('local:')) {
+            const next = localTxs.filter(t => t.id !== key);
+            setLocalTxs(next); saveLocal(LOCAL_TX_KEY, next);
+            return;
+        }
+        const next = [...new Set([...deletedKeys, key])];
+        setDeletedKeys(next); saveLocal(LOCAL_DELETED_KEY, next);
+    };
+
+    const importTransactions = (rows) => {
+        const stamped = rows.map(r => ({
+            ...r,
+            id: 'local:' + (Date.now() + Math.random()),
+            _local: true,
+            _imported: true,
+        }));
+        const next = [...localTxs, ...stamped];
+        setLocalTxs(next); saveLocal(LOCAL_TX_KEY, next);
+        return stamped.length;
+    };
+
+    useEffect(() => { fetchTransactions(); }, []);
+
+    /* ── Combinar remoto + local con overrides + deletes ── */
+    const transactions = useMemo(() => {
+        const out = [];
+        remote.forEach((t, idx) => {
+            const k = txStableKey(t, idx);
+            if (deletedKeys.includes(k)) return;
+            const ov = overrides[k];
+            out.push({ ...t, id: k, ...(ov || {}) });
+        });
+        for (const t of localTxs) out.push(t);
+        return out;
+    }, [remote, localTxs, deletedKeys, overrides]);
 
     const stats = useMemo(() => {
         const currentMonth = new Date().toISOString().slice(0, 7);
@@ -102,11 +142,9 @@ export function useFinanzas() {
         const income = currentMonthTxs
             .filter(t => t.Tipo === 'Ingreso' || t.Monto > 0)
             .reduce((acc, curr) => acc + Number(curr.Monto), 0);
-
         const expenses = currentMonthTxs
             .filter(t => t.Tipo === 'Gasto' || t.Monto < 0)
             .reduce((acc, curr) => acc + Math.abs(Number(curr.Monto)), 0);
-
         const balance = income - expenses;
 
         const expensesByCategory = currentMonthTxs
@@ -116,21 +154,14 @@ export function useFinanzas() {
                 acc[cat] = (acc[cat] || 0) + Math.abs(Number(curr.Monto));
                 return acc;
             }, {});
-
-        const chartData = Object.entries(expensesByCategory).map(([name, value]) => ({
-            name,
-            value,
-        }));
-
+        const chartData = Object.entries(expensesByCategory).map(([name, value]) => ({ name, value }));
         return { income, expenses, balance, chartData };
     }, [transactions]);
 
-    // Extraer categorías únicas de las transacciones + las por defecto
     const categories = useMemo(() => {
-        const defaultCategories = ['Comida', 'Transporte', 'Entretenimiento', 'Salud', 'Servicios', 'Salario', 'Otros'];
-        const transactionCategories = transactions.map(t => t.Categoría).filter(Boolean);
-        // Unir y quitar duplicados
-        return [...new Set([...defaultCategories, ...transactionCategories])].sort();
+        const defaults = ['Comida', 'Transporte', 'Entretenimiento', 'Salud', 'Servicios', 'Suscripción', 'Hogar', 'Educación', 'Salario', 'Inversión', 'Otros'];
+        const fromTxs = transactions.map(t => t.Categoría).filter(Boolean);
+        return [...new Set([...defaults, ...fromTxs])].sort();
     }, [transactions]);
 
     return {
@@ -138,8 +169,11 @@ export function useFinanzas() {
         loading,
         error,
         addTransaction,
+        updateTransaction,
+        deleteTransaction,
+        importTransactions,
         stats,
-        categories, // Exportamos las categorías dinámicas
+        categories,
         refresh: fetchTransactions
     };
 }

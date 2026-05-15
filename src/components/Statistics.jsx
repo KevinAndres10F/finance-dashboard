@@ -5,11 +5,15 @@ import {
   Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
 import { TrendingUp, TrendingDown, Target, Calendar, PiggyBank, AlertCircle, Rocket } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, fmtMoney } from '../lib/utils';
+import { useSettings } from '../hooks/useSettings';
+import { SankeyFlow } from './SankeyFlow';
 
 const COLORS = ['#10b981', '#f43f5e', '#3b82f6', '#f59e0b', '#8b5cf6', '#64748b', '#ec4899', '#06b6d4'];
 
 export function Statistics({ transactions, budgetData = [] }) {
+  const { settings } = useSettings();
+  const C = settings.currency;
   const stats = useMemo(() => {
     // Agrupar por mes
     const monthlyData = transactions.reduce((acc, t) => {
@@ -135,6 +139,9 @@ export function Statistics({ transactions, budgetData = [] }) {
 
   return (
     <div className="space-y-6">
+      {/* Sankey de flujo de dinero */}
+      <SankeyFlow transactions={transactions} />
+
       {/* Métricas Clave */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <MetricCard
@@ -145,13 +152,13 @@ export function Statistics({ transactions, budgetData = [] }) {
         />
         <MetricCard
           title="Gasto Diario Promedio"
-          value={`$${stats.metrics.avgDailyExpense.toFixed(2)}`}
+          value={fmtMoney(stats.metrics.avgDailyExpense, C)}
           icon={Calendar}
           className="text-blue-600"
         />
         <MetricCard
           title="Proyección Mensual"
-          value={`$${stats.metrics.projectedExpense.toFixed(2)}`}
+          value={fmtMoney(stats.metrics.projectedExpense, C)}
           icon={Rocket}
           trend={stats.metrics.projectedExpense <= stats.comparison.currentExpenses * (stats.metrics.daysInMonth / Math.max(stats.metrics.dayOfMonth, 1)) ? 'positive' : 'neutral'}
         />
@@ -235,7 +242,7 @@ export function Statistics({ transactions, budgetData = [] }) {
                   width={80}
                 />
                 <Tooltip 
-                  formatter={(value) => `$${value.toFixed(2)}`}
+                  formatter={(value) => fmtMoney(value, C)}
                   contentStyle={{ 
                     backgroundColor: 'white', 
                     border: '1px solid #e2e8f0',
@@ -274,7 +281,7 @@ export function Statistics({ transactions, budgetData = [] }) {
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value) => `$${value.toFixed(2)}`} />
+                <Tooltip formatter={(value) => fmtMoney(value, C)} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -292,7 +299,7 @@ export function Statistics({ transactions, budgetData = [] }) {
                 <XAxis dataKey="week" stroke="#64748b" style={{ fontSize: '12px' }} />
                 <YAxis stroke="#64748b" style={{ fontSize: '12px' }} />
                 <Tooltip
-                  formatter={(value) => `$${value.toFixed(2)}`}
+                  formatter={(value) => fmtMoney(value, C)}
                   contentStyle={{
                     backgroundColor: 'white',
                     border: '1px solid #e2e8f0',
@@ -318,7 +325,7 @@ export function Statistics({ transactions, budgetData = [] }) {
                   <XAxis dataKey="name" stroke="#64748b" style={{ fontSize: '12px' }} />
                   <YAxis stroke="#64748b" style={{ fontSize: '12px' }} />
                   <Tooltip
-                    formatter={(value) => `$${value.toFixed(2)}`}
+                    formatter={(value) => fmtMoney(value, C)}
                     contentStyle={{
                       backgroundColor: 'white',
                       border: '1px solid #e2e8f0',

@@ -3,11 +3,14 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Plus, Target, AlertTriangle, TrendingUp, X } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, fmtMoney } from '../lib/utils';
 import { useBudgets } from '../hooks/useBudgets';
+import { useSettings } from '../hooks/useSettings';
 
 export function Budgets({ transactions, categories }) {
   const { budgetData, addBudget, removeBudget } = useBudgets(transactions);
+  const { settings } = useSettings();
+  const C = settings.currency;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     category: categories[0] || 'Comida',
@@ -60,7 +63,7 @@ export function Budgets({ transactions, categories }) {
                     {budget.category}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Límite: ${budget.limit.toFixed(2)}
+                    Límite: {fmtMoney(budget.limit, C)}
                   </p>
                 </div>
                 <button
@@ -74,7 +77,7 @@ export function Budgets({ transactions, categories }) {
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-600 dark:text-slate-300">
-                    ${budget.spent.toFixed(2)} gastados
+                    {fmtMoney(budget.spent, C)} gastados
                   </span>
                   <span className={cn(
                     "font-semibold",
@@ -102,17 +105,17 @@ export function Budgets({ transactions, categories }) {
                   {budget.status === 'exceeded' ? (
                     <div className="flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400">
                       <AlertTriangle className="w-3 h-3" />
-                      <span>Presupuesto excedido por ${Math.abs(budget.remaining).toFixed(2)}</span>
+                      <span>Presupuesto excedido por {fmtMoney(Math.abs(budget.remaining), C)}</span>
                     </div>
                   ) : budget.status === 'warning' ? (
                     <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
                       <AlertTriangle className="w-3 h-3" />
-                      <span>Quedan ${budget.remaining.toFixed(2)}</span>
+                      <span>Quedan {fmtMoney(budget.remaining, C)}</span>
                     </div>
                   ) : (
                     <div className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
                       <TrendingUp className="w-3 h-3" />
-                      <span>Quedan ${budget.remaining.toFixed(2)}</span>
+                      <span>Quedan {fmtMoney(budget.remaining, C)}</span>
                     </div>
                   )}
                 </div>

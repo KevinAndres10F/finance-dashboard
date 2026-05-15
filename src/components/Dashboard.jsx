@@ -1,6 +1,11 @@
 import { useMemo } from 'react';
 import { Card } from './ui/Card';
-import { cn } from '../lib/utils';
+import { cn, fmtMoney } from '../lib/utils';
+import { useSettings } from '../hooks/useSettings';
+import { useAccounts } from '../hooks/useAccounts';
+import { useDebts } from '../hooks/useDebts';
+import { useGoals } from '../hooks/useGoals';
+import { useSubscriptions } from '../hooks/useSubscriptions';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
@@ -8,7 +13,7 @@ import {
 import {
   TrendingUp, TrendingDown, Wallet, PiggyBank, Calendar, Zap,
   ArrowUp, ArrowDown, AlertTriangle, CheckCircle2, MinusCircle,
-  ShoppingBag, CreditCard, Banknote, Activity, Target, BarChart3
+  ShoppingBag, CreditCard, Banknote, Activity, Target, BarChart3, Repeat
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -150,6 +155,12 @@ function BudgetStatusBadge({ budget }) {
    DASHBOARD PRINCIPAL
 ════════════════════════════════════════════════════════════════ */
 export function Dashboard({ transactions, stats, budgetData }) {
+  const { settings } = useSettings();
+  const { totals: accountTotals } = useAccounts();
+  const { totals: debtTotals } = useDebts();
+  const { goals, summary: goalsSummary } = useGoals();
+  const subs = useSubscriptions(transactions);
+  const C = settings.currency;
   const metrics = useMemo(() => {
     const now = new Date();
     const currentMonth  = now.toISOString().slice(0, 7);
@@ -258,17 +269,67 @@ export function Dashboard({ transactions, stats, budgetData }) {
     };
   }, [transactions, stats, budgetData]);
 
-  const fmt = (n) => n.toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmt = (n) => fmtMoney(n, C);
+  const upcomingTotal = subs.upcomingBills.slice(0, 5).reduce((s, b) => s + Number(b.amount || 0), 0);
+  const netWorth = accountTotals.netWorth - debtTotals.totalBalance;
 
   return (
     <div className="space-y-6">
+
+      {/* ── ROW 0: Patrimonio + Objetivos + Suscripciones (resumen) ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Patrimonio Neto</p>
+            <div className={cn('p-2 rounded-xl',
+              netWorth >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600'
+            )}>
+              <Wallet className="w-4 h-4" />
+            </div>
+          </div>
+          <p className={cn('text-2xl font-bold tracking-tight',
+            netWorth >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'
+          )}>
+            {fmtMoney(netWorth, C, { sign: true })}
+          </p>
+          <p className="text-xs text-slate-400 mt-2">
+            Activos {fmt(accountTotals.assets)} · Pasivos {fmt(accountTotals.liabilities + debtTotals.totalBalance)}
+          </p>
+        </Card>
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Objetivos de ahorro</p>
+            <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600">
+              <Target className="w-4 h-4" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            {fmt(goalsSummary.totalSaved)} <span className="text-sm font-normal text-slate-400">/ {fmt(goalsSummary.totalTarget)}</span>
+          </p>
+          <p className="text-xs text-slate-400 mt-2">
+            {goalsSummary.completed} de {goalsSummary.total} completados
+          </p>
+        </Card>
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Próximos cobros</p>
+            <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-600">
+              <Repeat className="w-4 h-4" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{fmt(upcomingTotal)}</p>
+          <p className="text-xs text-slate-400 mt-2">
+            {subs.upcomingBills.length} suscripciones · {fmt(subs.monthlyTotal)}/mes
+          </p>
+        </Card>
+      </div>
 
       {/* ── ROW 1: KPIs principales ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KpiCard
           delay={0}
           title="Balance del Mes"
-          value={`$${fmt(metrics.balance)}`}
+          value={fmt(metrics.balance)}
           icon={Wallet}
           iconBg={metrics.balance >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600'}
           valueClass={metrics.balance >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}
@@ -276,7 +337,7 @@ export function Dashboard({ transactions, stats, budgetData }) {
         <KpiCard
           delay={0.05}
           title="Ingresos del Mes"
-          value={`$${fmt(metrics.income)}`}
+          value={fmt(metrics.income)}
           icon={TrendingUp}
           iconBg="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600"
           valueClass="text-emerald-700 dark:text-emerald-400"
@@ -286,7 +347,7 @@ export function Dashboard({ transactions, stats, budgetData }) {
         <KpiCard
           delay={0.1}
           title="Gastos del Mes"
-          value={`$${fmt(metrics.expenses)}`}
+          value={fmt(metrics.expenses)}
           icon={TrendingDown}
           iconBg="bg-rose-50 dark:bg-rose-900/30 text-rose-600"
           valueClass="text-rose-700 dark:text-rose-400"
@@ -309,7 +370,7 @@ export function Dashboard({ transactions, stats, budgetData }) {
         <KpiCard
           delay={0.2}
           title="Gasto Diario Promedio"
-          value={`$${fmt(metrics.dailyAvg)}`}
+          value={fmt(metrics.dailyAvg)}
           icon={Calendar}
           iconBg="bg-blue-50 dark:bg-blue-900/30 text-blue-600"
           sub={`Día ${metrics.dayOfMonth} de ${metrics.daysInMonth}`}
@@ -317,7 +378,7 @@ export function Dashboard({ transactions, stats, budgetData }) {
         <KpiCard
           delay={0.25}
           title="Proyección Mensual"
-          value={`$${fmt(metrics.projection)}`}
+          value={fmt(metrics.projection)}
           icon={BarChart3}
           iconBg="bg-violet-50 dark:bg-violet-900/30 text-violet-600"
           sub={`${metrics.daysLeft} días restantes`}
@@ -325,7 +386,7 @@ export function Dashboard({ transactions, stats, budgetData }) {
         <KpiCard
           delay={0.3}
           title="Disponible"
-          value={`$${fmt(Math.max(0, metrics.remainingBudget))}`}
+          value={fmt(Math.max(0, metrics.remainingBudget))}
           icon={Banknote}
           iconBg="bg-teal-50 dark:bg-teal-900/30 text-teal-600"
           valueClass="text-teal-700 dark:text-teal-400"
@@ -337,7 +398,7 @@ export function Dashboard({ transactions, stats, budgetData }) {
           value={metrics.totalTxCount}
           icon={Activity}
           iconBg="bg-slate-100 dark:bg-slate-800 text-slate-600"
-          sub={metrics.biggestExpense ? `Mayor: $${Math.abs(Number(metrics.biggestExpense.Monto)).toFixed(2)}` : 'Este mes'}
+          sub={metrics.biggestExpense ? `Mayor: ${fmt(Math.abs(Number(metrics.biggestExpense.Monto)))}` : 'Este mes'}
         />
       </div>
 
