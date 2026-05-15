@@ -1,0 +1,279 @@
+import { useState, useRef } from 'react';
+import { Card } from './ui/Card';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { useSettings } from '../hooks/useSettings';
+import { useCategoryRules } from '../hooks/useCategoryRules';
+import { fmtMoney } from '../lib/utils';
+import {
+  Globe, Palette, Sparkles, Plus, X, Download, Upload,
+  AlertTriangle, Trash2, Settings as SettingsIcon, Wand2
+} from 'lucide-react';
+
+const CURRENCIES = [
+  { code: 'USD', label: 'US Dollar', symbol: '$' },
+  { code: 'EUR', label: 'Euro',      symbol: '€' },
+  { code: 'MXN', label: 'Peso mexicano',  symbol: '$' },
+  { code: 'COP', label: 'Peso colombiano', symbol: '$' },
+  { code: 'ARS', label: 'Peso argentino',  symbol: '$' },
+  { code: 'GBP', label: 'British Pound',   symbol: '£' },
+  { code: 'BRL', label: 'Real brasileño',  symbol: 'R$' },
+];
+
+export function Settings({ transactions, categories, importTransactions }) {
+  const { settings, update } = useSettings();
+  const { rules, addRule, removeRule, ruleSuggestions } = useCategoryRules(transactions);
+  const [match, setMatch] = useState('');
+  const [category, setCategory] = useState(categories[0] || 'Otros');
+  const fileRef = useRef(null);
+
+  const exportAll = () => {
+    const data = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      settings,
+      accounts: JSON.parse(localStorage.getItem('finance-accounts') || '[]'),
+      goals: JSON.parse(localStorage.getItem('finance-goals') || '[]'),
+      debts: JSON.parse(localStorage.getItem('finance-debts') || '[]'),
+      budgets: JSON.parse(localStorage.getItem('finance-budgets') || '[]'),
+      rules: JSON.parse(localStorage.getItem('finance-category-rules') || '[]'),
+      subscriptions: JSON.parse(localStorage.getItem('finance-subscriptions') || '[]'),
+      transactionMeta: JSON.parse(localStorage.getItem('finance-tx-meta') || '{}'),
+      localTransactions: JSON.parse(localStorage.getItem('finance-local-transactions') || '[]'),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `finanzas-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+  };
+
+  const exportTxsCSV = () => {
+    const headers = ['Fecha', 'Descripción', 'Categoría', 'Tipo', 'Cuenta', 'Monto'];
+    const rows = transactions.map(t => [t.Fecha, t.Descripción, t.Categoría, t.Tipo, t.Cuenta, t.Monto]);
+    const csv = [headers, ...rows]
+      .map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    link.download = `transacciones-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+  };
+
+  const onFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    if (file.name.endsWith('.json')) {
+      try {
+        const data = JSON.parse(text);
+        if (data.settings) localStorage.setItem('finance-settings', JSON.stringify(data.settings));
+        if (data.accounts) localStorage.setItem('finance-accounts', JSON.stringify(data.accounts));
+        if (data.goals) localStorage.setItem('finance-goals', JSON.stringify(data.goals));
+        if (data.debts) localStorage.setItem('finance-debts', JSON.stringify(data.debts));
+        if (data.budgets) localStorage.setItem('finance-budgets', JSON.stringify(data.budgets));
+        if (data.rules) localStorage.setItem('finance-category-rules', JSON.stringify(data.rules));
+        if (data.subscriptions) localStorage.setItem('finance-subscriptions', JSON.stringify(data.subscriptions));
+        if (data.transactionMeta) localStorage.setItem('finance-tx-meta', JSON.stringify(data.transactionMeta));
+        if (data.localTransactions) localStorage.setItem('finance-local-transactions', JSON.stringify(data.localTransactions));
+        alert('Backup restaurado. Recarga la página para ver los cambios.');
+      } catch {
+        alert('Archivo JSON inválido');
+      }
+    } else if (file.name.endsWith('.csv')) {
+      const lines = text.split('\n').filter(Boolean);
+      if (lines.length < 2) { alert('CSV vacío'); return; }
+      const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
+      const find = (...names) => headers.findIndex(h => names.some(n => h.toLowerCase() === n.toLowerCase()));
+      const idx = {
+        Fecha: find('Fecha', 'Date'),
+        Descripción: find('Descripción', 'Descripcion', 'Description'),
+        Categoría: find('Categoría', 'Categoria', 'Category'),
+        Tipo: find('Tipo', 'Type'),
+        Cuenta: find('Cuenta', 'Account'),
+        Monto: find('Monto', 'Amount'),
+      };
+      const rows = lines.slice(1).map(line => {
+        const cells = parseCsvLine(line);
+        const Monto = Number(cells[idx.Monto] ?? 0);
+        return {
+          Fecha: cells[idx.Fecha] || new Date().toISOString().slice(0, 10),
+          Descripción: cells[idx.Descripción] || '',
+          Categoría: cells[idx.Categoría] || 'Otros',
+          Tipo: cells[idx.Tipo] || (Monto < 0 ? 'Gasto' : 'Ingreso'),
+          Cuenta: cells[idx.Cuenta] || 'Principal',
+          Monto,
+        };
+      }).filter(r => r.Monto !== 0);
+      const n = importTransactions(rows);
+      alert(`${n} transacciones importadas localmente`);
+    }
+    e.target.value = '';
+  };
+
+  const dangerReset = (key, label) => {
+    if (!confirm(`Esto borrará ${label}. ¿Seguro?`)) return;
+    localStorage.removeItem(key);
+    alert(`${label} borrado. Recarga la página.`);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Ajustes</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Moneda, reglas, import/export y datos</p>
+      </div>
+
+      {/* Currency */}
+      <Card className="p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Globe className="w-4 h-4 text-indigo-500" />
+          <h3 className="text-lg font-semibold">Moneda y formato</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-medium block mb-2">Moneda</label>
+            <select value={settings.currency} onChange={e => update({ currency: e.target.value })}
+              className="w-full h-10 rounded-xl bg-white/60 dark:bg-slate-800/60 border border-white/50 dark:border-white/10 px-3 text-sm">
+              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.symbol} {c.code} · {c.label}</option>)}
+            </select>
+            <p className="text-xs text-slate-400 mt-1">Vista previa: {fmtMoney(1234.56, settings.currency)}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium block mb-2">Inicio del mes</label>
+            <Input type="number" min="1" max="28" value={settings.startOfMonth}
+                   onChange={e => update({ startOfMonth: Number(e.target.value) || 1 })} />
+            <p className="text-xs text-slate-400 mt-1">Día del mes en que empieza tu ciclo financiero</p>
+          </div>
+        </div>
+      </Card>
+
+      {/* Categorization rules */}
+      <Card className="p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Wand2 className="w-4 h-4 text-violet-500" />
+          <h3 className="text-lg font-semibold">Reglas de auto-categorización</h3>
+        </div>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+          Si la descripción de una nueva transacción contiene el patrón, se asigna automáticamente la categoría.
+        </p>
+
+        <form onSubmit={e => { e.preventDefault(); if (match.trim()) { addRule(match.trim(), category); setMatch(''); } }}
+              className="grid grid-cols-1 md:grid-cols-[2fr_1fr_auto] gap-2 mb-4">
+          <Input placeholder="Patrón (ej: starbucks)" value={match} onChange={e => setMatch(e.target.value)} />
+          <select value={category} onChange={e => setCategory(e.target.value)}
+            className="h-10 rounded-xl bg-white/60 dark:bg-slate-800/60 border border-white/50 dark:border-white/10 px-3 text-sm">
+            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <Button type="submit" className="gap-1.5"><Plus className="w-4 h-4" /> Añadir</Button>
+        </form>
+
+        {ruleSuggestions.length > 0 && (
+          <div className="mb-4 p-3 rounded-xl bg-violet-50/50 dark:bg-violet-900/10 border border-violet-200/40 dark:border-violet-700/20">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+              <p className="text-xs font-semibold text-violet-700 dark:text-violet-400 uppercase tracking-wide">Sugeridas</p>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {ruleSuggestions.map(s => (
+                <button key={`${s.match}-${s.category}`} onClick={() => addRule(s.match, s.category)}
+                  className="text-xs px-2.5 py-1 rounded-lg border border-violet-200/50 dark:border-violet-700/30 bg-white/60 dark:bg-slate-800/60 hover:bg-violet-100/60 dark:hover:bg-violet-900/20 transition-colors">
+                  <span className="font-mono">{s.match}</span> → <span className="font-semibold">{s.category}</span>
+                  <span className="text-slate-400 ml-1">({s.count}×)</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {rules.length === 0 ? (
+          <p className="text-sm text-slate-400 py-6 text-center">Sin reglas configuradas</p>
+        ) : (
+          <div className="space-y-1.5">
+            {rules.map(r => (
+              <div key={r.id} className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200/60 dark:border-white/10">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-mono text-slate-600 dark:text-slate-300">{r.match}</span>
+                  <span className="text-slate-400">→</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">{r.category}</span>
+                </div>
+                <button onClick={() => removeRule(r.id)} className="text-slate-400 hover:text-rose-500">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* Import / Export */}
+      <Card className="p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <SettingsIcon className="w-4 h-4 text-emerald-500" />
+          <h3 className="text-lg font-semibold">Importar y exportar</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <Button variant="outline" onClick={exportTxsCSV} className="gap-2 justify-center">
+            <Download className="w-4 h-4" /> Transacciones (CSV)
+          </Button>
+          <Button variant="outline" onClick={exportAll} className="gap-2 justify-center">
+            <Download className="w-4 h-4" /> Backup completo (JSON)
+          </Button>
+          <Button variant="outline" onClick={() => fileRef.current?.click()} className="gap-2 justify-center">
+            <Upload className="w-4 h-4" /> Importar CSV / JSON
+          </Button>
+          <input ref={fileRef} type="file" accept=".csv,.json" onChange={onFile} className="hidden" />
+        </div>
+        <p className="text-xs text-slate-400 mt-3">
+          Las transacciones importadas vía CSV se guardan localmente en este navegador (no se suben al backend).
+        </p>
+      </Card>
+
+      {/* Danger zone */}
+      <Card className="p-5 border-rose-200/40 dark:border-rose-700/20">
+        <div className="flex items-center gap-2 mb-4">
+          <AlertTriangle className="w-4 h-4 text-rose-500" />
+          <h3 className="text-lg font-semibold">Zona peligrosa</h3>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <DangerBtn label="Borrar presupuestos" onClick={() => dangerReset('finance-budgets', 'todos los presupuestos')} />
+          <DangerBtn label="Borrar cuentas y patrimonio" onClick={() => { dangerReset('finance-accounts', 'todas las cuentas'); localStorage.removeItem('finance-networth-history'); }} />
+          <DangerBtn label="Borrar deudas" onClick={() => dangerReset('finance-debts', 'todas las deudas')} />
+          <DangerBtn label="Borrar objetivos" onClick={() => dangerReset('finance-goals', 'todos los objetivos')} />
+          <DangerBtn label="Borrar reglas" onClick={() => dangerReset('finance-category-rules', 'todas las reglas')} />
+          <DangerBtn label="Borrar tags y notas" onClick={() => dangerReset('finance-tx-meta', 'tags y notas locales')} />
+          <DangerBtn label="Borrar transacciones locales" onClick={() => dangerReset('finance-local-transactions', 'transacciones locales')} />
+          <DangerBtn label="Borrar suscripciones manuales" onClick={() => { dangerReset('finance-subscriptions', 'suscripciones manuales'); localStorage.removeItem('finance-subscriptions-ignored'); }} />
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function DangerBtn({ label, onClick }) {
+  return (
+    <button onClick={onClick}
+      className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-rose-200/40 dark:border-rose-700/30 bg-rose-50/40 dark:bg-rose-900/10 text-sm text-rose-700 dark:text-rose-400 hover:bg-rose-100/60 dark:hover:bg-rose-900/20 transition-colors">
+      <span>{label}</span>
+      <Trash2 className="w-3.5 h-3.5" />
+    </button>
+  );
+}
+
+function parseCsvLine(line) {
+  const out = [];
+  let cur = '';
+  let inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') {
+      if (inQuote && line[i + 1] === '"') { cur += '"'; i++; }
+      else inQuote = !inQuote;
+    } else if (c === ',' && !inQuote) {
+      out.push(cur); cur = '';
+    } else cur += c;
+  }
+  out.push(cur);
+  return out.map(s => s.trim());
+}

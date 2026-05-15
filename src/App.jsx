@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useFinanzas } from './hooks/useFinanzas';
 import { useBudgets } from './hooks/useBudgets';
 import { useDeviceAuth } from './hooks/useDeviceAuth';
+import { useSettings } from './hooks/useSettings';
+import { useCategoryRules } from './hooks/useCategoryRules';
+import { useGamification } from './hooks/useGamification';
 import { Card } from './components/ui/Card';
 import { Button } from './components/ui/Button';
 import { Input } from './components/ui/Input';
@@ -10,31 +13,34 @@ import { Statistics } from './components/Statistics';
 import { TransactionList } from './components/TransactionList';
 import { Budgets } from './components/Budgets';
 import { BudgetAlertBanner } from './components/BudgetAlertBanner';
-import { InsightsPanel } from './components/InsightsPanel';
 import { LockScreen } from './components/LockScreen';
 import { AuthSetup } from './components/AuthSetup';
 import { GamificationDashboard } from './components/GamificationDashboard';
 import { AchievementToast } from './components/AchievementToast';
-import { useGamification } from './hooks/useGamification';
 import { ConnectionsPanel } from './components/ConnectionsPanel';
 import { Dashboard } from './components/Dashboard';
+import { WealthHub } from './components/WealthHub';
+import { Goals } from './components/Goals';
+import { Subscriptions } from './components/Subscriptions';
+import { Settings as SettingsView } from './components/Settings';
 import {
-  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend
-} from 'recharts';
-import {
-  Wallet, TrendingUp, TrendingDown, Plus, X,
-  DollarSign, Moon, Sun, Target, BarChart3, ListTodo, LogOut, Trophy, Flame, Link
+  Wallet, Plus, X, DollarSign, Moon, Sun, Target, BarChart3, ListTodo,
+  LogOut, Trophy, Flame, Link, Repeat, PiggyBank, Settings as SettingsIcon, Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from './lib/utils';
-
-const COLORS = ['#10b981', '#f43f5e', '#3b82f6', '#f59e0b', '#8b5cf6', '#64748b'];
+import { cn, fmtMoney } from './lib/utils';
 
 function App() {
   const auth = useDeviceAuth();
-  const { transactions, loading, error, addTransaction, stats, categories } = useFinanzas();
+  const {
+    transactions, loading, error, addTransaction, updateTransaction,
+    deleteTransaction, importTransactions, stats, categories
+  } = useFinanzas();
   const { budgetData, budgetsInWarning, budgetsExceeded } = useBudgets(transactions);
   const gamification = useGamification(transactions, budgetData);
+  const { settings } = useSettings();
+  const rules = useCategoryRules(transactions);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [darkMode, setDarkMode] = useState(() => {
@@ -42,32 +48,42 @@ function App() {
     return saved ? JSON.parse(saved) : false;
   });
   const [formData, setFormData] = useState({
-    Monto: '',
-    Descripción: '',
-    Categoría: 'Otros',
-    Cuenta: 'Principal',
-    Tipo: 'Gasto'
+    Monto: '', Descripción: '', Categoría: 'Otros',
+    Cuenta: 'Principal', Tipo: 'Gasto',
+    Fecha: new Date().toISOString().split('T')[0],
   });
   const [submitStatus, setSubmitStatus] = useState('idle');
   const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [autoSuggested, setAutoSuggested] = useState(null);
 
-  // Aplicar dark mode
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    if (darkMode) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
     localStorage.setItem('darkMode', JSON.stringify(darkMode));
   }, [darkMode]);
+
+  // Auto-sugerir categoría según las reglas cuando cambia la descripción
+  useEffect(() => {
+    if (!formData.Descripción || isCustomCategory) return;
+    const suggested = rules.suggestCategory(formData.Descripción);
+    if (suggested && suggested !== formData.Categoría) {
+      setAutoSuggested(suggested);
+    } else {
+      setAutoSuggested(null);
+    }
+  }, [formData.Descripción, isCustomCategory, rules]);
 
   const tabs = [
     { id: 'overview',      label: 'Resumen',       icon: Wallet },
     { id: 'transactions',  label: 'Transacciones', icon: ListTodo },
     { id: 'statistics',    label: 'Estadísticas',  icon: BarChart3 },
     { id: 'budgets',       label: 'Presupuestos',  icon: Target },
+    { id: 'wealth',        label: 'Patrimonio',    icon: PiggyBank },
+    { id: 'goals',         label: 'Objetivos',     icon: Sparkles },
+    { id: 'subscriptions', label: 'Recurrentes',   icon: Repeat },
     { id: 'gamification',  label: 'Logros',        icon: Trophy },
     { id: 'connections',   label: 'Conexiones',    icon: Link },
+    { id: 'settings',      label: 'Ajustes',       icon: SettingsIcon },
   ];
 
   const handleTabChange = (tab) => {
@@ -80,39 +96,41 @@ function App() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const applyAutoSuggested = () => {
+    if (autoSuggested) {
+      setFormData(prev => ({ ...prev, Categoría: autoSuggested }));
+      setAutoSuggested(null);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitStatus('loading');
-
     const amount = parseFloat(formData.Monto);
     const finalAmount = formData.Tipo === 'Gasto' ? -Math.abs(amount) : Math.abs(amount);
-
     const result = await addTransaction({
       ...formData,
       Monto: finalAmount,
-      Fecha: new Date().toISOString().split('T')[0]
+      Fecha: formData.Fecha || new Date().toISOString().split('T')[0],
     });
-
     if (result.success) {
       setSubmitStatus('success');
       setTimeout(() => {
         setIsModalOpen(false);
         setSubmitStatus('idle');
         setFormData({
-          Monto: '',
-          Descripción: '',
-          Categoría: 'Otros',
-          Cuenta: 'Principal',
-          Tipo: 'Gasto'
+          Monto: '', Descripción: '', Categoría: 'Otros',
+          Cuenta: 'Principal', Tipo: 'Gasto',
+          Fecha: new Date().toISOString().split('T')[0],
         });
         setIsCustomCategory(false);
-      }, 1500);
+        setAutoSuggested(null);
+      }, 1200);
     } else {
       setSubmitStatus('error');
     }
   };
 
-  // ── Auth gate ────────────────────────────────────────────────────────
   if (auth.status === 'setup-required') {
     return (
       <AuthSetup
@@ -137,7 +155,6 @@ function App() {
 
   return (
     <div className="app-bg text-slate-900 dark:text-white font-sans pb-20 md:pb-10 transition-colors">
-      {/* Header */}
       <header className="glass-header sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -145,31 +162,21 @@ function App() {
               <Wallet className="w-5 h-5 text-white dark:text-slate-900" />
             </div>
             <h1 className="text-xl font-bold tracking-tight">Finanzas</h1>
+            <span className="hidden md:inline text-xs px-2 py-0.5 rounded-full bg-slate-100/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400">
+              {settings.currency}
+            </span>
             {gamification.streak > 0 && (
               <div className="hidden sm:flex items-center gap-1 bg-amber-50/80 dark:bg-amber-900/30 border border-amber-200/60 dark:border-amber-700/30 px-2.5 py-1 rounded-full">
                 <Flame className="w-3.5 h-3.5 text-amber-500 streak-pulse" />
-                <span className="text-xs font-bold text-amber-700 dark:text-amber-400">
-                  {gamification.streak}
-                </span>
+                <span className="text-xs font-bold text-amber-700 dark:text-amber-400">{gamification.streak}</span>
               </div>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2"
-            >
+            <Button variant="ghost" size="sm" onClick={() => setDarkMode(!darkMode)} className="p-2">
               {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={auth.lock}
-              className="p-2"
-              title="Bloquear app"
-            >
+            <Button variant="ghost" size="sm" onClick={auth.lock} className="p-2" title="Bloquear app">
               <LogOut className="w-5 h-5" />
             </Button>
             <Button onClick={() => setIsModalOpen(true)} className="gap-2">
@@ -183,67 +190,31 @@ function App() {
       <BudgetAlertBanner budgetsInWarning={budgetsInWarning} budgetsExceeded={budgetsExceeded} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        {/* Navigation Tabs */}
         <Tabs tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
 
-        {/* Tab Content */}
         <AnimatePresence mode="wait">
-          {activeTab === 'overview' && (
-            <motion.div
-              key="overview"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.18 }}
-            >
-              <Dashboard stats={stats} transactions={transactions} budgetData={budgetData} />
-            </motion.div>
-          )}
-
-          {activeTab === 'transactions' && (
-            <motion.div
-              key="transactions"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.18 }}
-            >
-              <TransactionList transactions={transactions} />
-            </motion.div>
-          )}
-
-          {activeTab === 'statistics' && (
-            <motion.div
-              key="statistics"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.18 }}
-            >
-              <Statistics transactions={transactions} budgetData={budgetData} />
-            </motion.div>
-          )}
-
-          {activeTab === 'budgets' && (
-            <motion.div
-              key="budgets"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.18 }}
-            >
-              <Budgets transactions={transactions} categories={categories} />
-            </motion.div>
-          )}
-
-          {activeTab === 'gamification' && (
-            <motion.div
-              key="gamification"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.18 }}
-            >
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.18 }}
+          >
+            {activeTab === 'overview' && <Dashboard stats={stats} transactions={transactions} budgetData={budgetData} />}
+            {activeTab === 'transactions' && (
+              <TransactionList
+                transactions={transactions}
+                categories={categories}
+                updateTransaction={updateTransaction}
+                deleteTransaction={deleteTransaction}
+              />
+            )}
+            {activeTab === 'statistics' && <Statistics transactions={transactions} budgetData={budgetData} />}
+            {activeTab === 'budgets' && <Budgets transactions={transactions} categories={categories} />}
+            {activeTab === 'wealth' && <WealthHub />}
+            {activeTab === 'goals' && <Goals />}
+            {activeTab === 'subscriptions' && <Subscriptions transactions={transactions} />}
+            {activeTab === 'gamification' && (
               <GamificationDashboard
                 xp={gamification.xp}
                 level={gamification.level}
@@ -252,27 +223,21 @@ function App() {
                 badges={gamification.badges}
                 missions={gamification.missions}
               />
-            </motion.div>
-          )}
-
-          {activeTab === 'connections' && (
-            <motion.div
-              key="connections"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.18 }}
-            >
-              <ConnectionsTab />
-            </motion.div>
-          )}
+            )}
+            {activeTab === 'connections' && <ConnectionsPanel />}
+            {activeTab === 'settings' && (
+              <SettingsView
+                transactions={transactions}
+                categories={categories}
+                importTransactions={importTransactions}
+              />
+            )}
+          </motion.div>
         </AnimatePresence>
       </main>
 
-      {/* Achievement Toast */}
       <AchievementToast badge={gamification.newBadge} onDismiss={gamification.dismissBadge} />
 
-      {/* Mobile Floating Action Button */}
       <button
         onClick={() => setIsModalOpen(true)}
         className="fixed bottom-6 right-6 md:hidden bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 p-4 rounded-full shadow-lg hover:shadow-xl transition-all z-40 backdrop-blur-sm"
@@ -280,14 +245,11 @@ function App() {
         <Plus className="w-6 h-6" />
       </button>
 
-      {/* Modal */}
       <AnimatePresence>
         {isModalOpen && (
           <>
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setIsModalOpen(false)}
               className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-50"
             />
@@ -298,8 +260,8 @@ function App() {
               transition={{ type: 'spring', bounce: 0.25, duration: 0.4 }}
               className="fixed inset-0 flex items-center justify-center z-50 p-4 pointer-events-none"
             >
-              <div className="glass w-full max-w-md rounded-2xl pointer-events-auto overflow-hidden">
-                <div className="flex items-center justify-between p-6 border-b border-white/30 dark:border-white/10">
+              <div className="glass w-full max-w-md rounded-2xl pointer-events-auto overflow-hidden max-h-[92vh] overflow-y-auto">
+                <div className="flex items-center justify-between p-6 border-b border-white/30 dark:border-white/10 sticky top-0 glass z-10">
                   <h3 className="text-lg font-semibold">Nueva Transacción</h3>
                   <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
                     <X className="w-5 h-5" />
@@ -310,117 +272,88 @@ function App() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Tipo</label>
                     <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, Tipo: 'Gasto' })}
-                        className={cn(
-                          "flex-1 py-2 rounded-lg text-sm font-medium transition-colors border",
+                      <button type="button" onClick={() => setFormData({ ...formData, Tipo: 'Gasto' })}
+                        className={cn('flex-1 py-2 rounded-lg text-sm font-medium transition-colors border',
                           formData.Tipo === 'Gasto'
-                            ? "bg-rose-50 dark:bg-rose-900/30 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400"
-                            : "bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600"
-                        )}
-                      >
+                            ? 'bg-rose-50 dark:bg-rose-900/30 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400'
+                            : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600'
+                        )}>
                         Gasto
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, Tipo: 'Ingreso' })}
-                        className={cn(
-                          "flex-1 py-2 rounded-lg text-sm font-medium transition-colors border",
+                      <button type="button" onClick={() => setFormData({ ...formData, Tipo: 'Ingreso' })}
+                        className={cn('flex-1 py-2 rounded-lg text-sm font-medium transition-colors border',
                           formData.Tipo === 'Ingreso'
-                            ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400"
-                            : "bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600"
-                        )}
-                      >
+                            ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400'
+                            : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600'
+                        )}>
                         Ingreso
                       </button>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Monto</label>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <Input
-                        type="number"
-                        step="0.01"
-                        name="Monto"
-                        value={formData.Monto}
-                        onChange={handleInputChange}
-                        placeholder="0.00"
-                        className="pl-9"
-                        required
-                      />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Monto</label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <Input type="number" step="0.01" name="Monto" value={formData.Monto}
+                               onChange={handleInputChange} placeholder="0.00" className="pl-9" required />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Fecha</label>
+                      <Input type="date" name="Fecha" value={formData.Fecha} onChange={handleInputChange} />
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Descripción</label>
-                    <Input
-                      name="Descripción"
-                      value={formData.Descripción}
-                      onChange={handleInputChange}
-                      placeholder="Ej: Compras del super"
-                      required
-                    />
+                    <Input name="Descripción" value={formData.Descripción}
+                      onChange={handleInputChange} placeholder="Ej: Compras del super" required />
                   </div>
+
+                  {autoSuggested && (
+                    <button type="button" onClick={applyAutoSuggested}
+                      className="w-full text-left text-xs px-3 py-2 rounded-xl bg-violet-50/80 dark:bg-violet-900/20 border border-violet-200/60 dark:border-violet-700/30 text-violet-700 dark:text-violet-400 hover:bg-violet-100/80 dark:hover:bg-violet-900/30 transition-colors flex items-center gap-2">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Regla detectada · usar categoría <span className="font-bold">{autoSuggested}</span>
+                    </button>
+                  )}
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Categoría</label>
                       {isCustomCategory ? (
                         <div className="flex gap-2">
-                          <Input
-                            name="Categoría"
-                            value={formData.Categoría}
-                            onChange={handleInputChange}
-                            placeholder="Nueva categoría..."
-                            required
-                            autoFocus
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
+                          <Input name="Categoría" value={formData.Categoría} onChange={handleInputChange}
+                            placeholder="Nueva categoría..." required autoFocus />
+                          <button type="button" onClick={() => {
                               setIsCustomCategory(false);
                               setFormData(prev => ({ ...prev, Categoría: categories[0] || 'Otros' }));
                             }}
                             className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
-                            title="Volver a la lista"
-                          >
+                            title="Volver a la lista">
                             <X className="w-5 h-5" />
                           </button>
                         </div>
                       ) : (
-                        <select
-                          name="Categoría"
-                          value={formData.Categoría}
+                        <select name="Categoría" value={formData.Categoría}
                           onChange={(e) => {
                             if (e.target.value === '__NEW__') {
                               setIsCustomCategory(true);
                               setFormData(prev => ({ ...prev, Categoría: '' }));
-                            } else {
-                              handleInputChange(e);
-                            }
+                            } else handleInputChange(e);
                           }}
-                          className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
-                        >
-                          {categories.map(cat => (
-                            <option key={cat} value={cat}>{cat}</option>
-                          ))}
-                          <option value="__NEW__" className="font-semibold text-indigo-600">
-                            + Nueva Categoría...
-                          </option>
+                          className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+                          {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                          <option value="__NEW__" className="font-semibold text-indigo-600">+ Nueva Categoría...</option>
                         </select>
                       )}
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Cuenta</label>
-                      <select
-                        name="Cuenta"
-                        value={formData.Cuenta}
-                        onChange={handleInputChange}
-                        className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
-                      >
+                      <select name="Cuenta" value={formData.Cuenta} onChange={handleInputChange}
+                        className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
                         <option>Principal</option>
                         <option>Ahorros</option>
                         <option>Efectivo</option>
@@ -429,11 +362,7 @@ function App() {
                   </div>
 
                   <div className="pt-4">
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={submitStatus === 'loading'}
-                    >
+                    <Button type="submit" className="w-full" disabled={submitStatus === 'loading'}>
                       {submitStatus === 'loading' ? 'Guardando...' : 'Guardar Transacción'}
                     </Button>
                     {submitStatus === 'success' && (
@@ -451,149 +380,6 @@ function App() {
       </AnimatePresence>
     </div>
   );
-}
-
-function OverviewTab({ stats, transactions, loading, budgetData }) {
-  return (
-    <>
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <SummaryCard
-          title="Balance Total"
-          amount={stats.balance}
-          icon={Wallet}
-          trend={stats.balance >= 0 ? 'positive' : 'negative'}
-        />
-        <SummaryCard
-          title="Ingresos del Mes"
-          amount={stats.income}
-          icon={TrendingUp}
-          className="text-emerald-600 dark:text-emerald-400"
-          iconBg="bg-emerald-100 dark:bg-emerald-900/30"
-        />
-        <SummaryCard
-          title="Gastos del Mes"
-          amount={stats.expenses}
-          icon={TrendingDown}
-          className="text-rose-600 dark:text-rose-400"
-          iconBg="bg-rose-100 dark:bg-rose-900/30"
-        />
-      </div>
-
-      <InsightsPanel transactions={transactions} budgetData={budgetData} />
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Content: Transactions */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Últimas Transacciones</h2>
-          </div>
-
-          <Card className="p-0 overflow-hidden border-slate-200/60 dark:border-slate-700 shadow-sm">
-            {loading && transactions.length === 0 ? (
-              <div className="p-8 text-center text-slate-500 dark:text-slate-400">Cargando transacciones...</div>
-            ) : (
-              <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {transactions.length === 0 ? (
-                  <div className="p-8 text-center text-slate-500 dark:text-slate-400">No hay transacciones recientes.</div>
-                ) : (
-                  transactions.slice(0, 10).map((t, i) => (
-                    <TransactionItem key={i} transaction={t} />
-                  ))
-                )}
-              </div>
-            )}
-          </Card>
-        </div>
-
-        {/* Sidebar: Chart */}
-        <div className="space-y-6">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Gastos por Categoría</h2>
-          <Card className="min-h-[300px] flex flex-col items-center justify-center">
-            {stats.chartData.length > 0 ? (
-              <div className="w-full h-[250px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={stats.chartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {stats.chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => `$${value.toFixed(2)}`} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="text-slate-400 dark:text-slate-500 text-sm">No hay datos de gastos aún</div>
-            )}
-          </Card>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function SummaryCard({ title, amount, icon: Icon, className, iconBg, trend }) {
-  return (
-    <Card className="flex items-center gap-4">
-      <div className={cn("p-3 rounded-xl", iconBg || "bg-slate-100 dark:bg-slate-800")}>
-        <Icon className={cn("w-6 h-6", className || "text-slate-600 dark:text-slate-400")} />
-      </div>
-      <div>
-        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{title}</p>
-        <h3 className={cn("text-2xl font-bold tracking-tight", className)}>
-          ${amount.toFixed(2)}
-        </h3>
-      </div>
-    </Card>
-  );
-}
-
-function TransactionItem({ transaction }) {
-  const isExpense = transaction.Tipo === 'Gasto' || transaction.Monto < 0;
-  return (
-    <div className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
-      <div className="flex items-center gap-4">
-        <div className={cn(
-          "w-10 h-10 rounded-full flex items-center justify-center",
-          isExpense 
-            ? "bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400" 
-            : "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
-        )}>
-          {isExpense ? <TrendingDown className="w-5 h-5" /> : <TrendingUp className="w-5 h-5" />}
-        </div>
-        <div>
-          <p className="font-medium text-slate-900 dark:text-white">{transaction.Descripción}</p>
-          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-            <span>{transaction.Categoría}</span>
-            <span>•</span>
-            <span>{transaction.Fecha}</span>
-          </div>
-        </div>
-      </div>
-      <div className={cn(
-        "font-semibold",
-        isExpense 
-          ? "text-rose-600 dark:text-rose-400" 
-          : "text-emerald-600 dark:text-emerald-400"
-      )}>
-        {isExpense ? '-' : '+'}${Math.abs(transaction.Monto).toFixed(2)}
-      </div>
-    </div>
-  );
-}
-
-function ConnectionsTab() {
-  return <ConnectionsPanel />;
 }
 
 export default App;
