@@ -7,7 +7,7 @@ import { useCategoryRules } from '../hooks/useCategoryRules';
 import { fmtMoney } from '../lib/utils';
 import {
   Globe, Palette, Sparkles, Plus, X, Download, Upload,
-  AlertTriangle, Trash2, Settings as SettingsIcon, Wand2
+  AlertTriangle, Trash2, Settings as SettingsIcon, Wand2, Lock, Unlock
 } from 'lucide-react';
 
 const CURRENCIES = [
@@ -205,6 +205,33 @@ export function Settings({ transactions, categories, importTransactions }) {
             ))}
           </div>
         )}
+      </Card>
+
+      {/* Seguridad / bloqueo */}
+      <Card className="p-5">
+        <div className="flex items-center gap-2 mb-4">
+          {settings.authEnabled ? <Lock className="w-4 h-4 text-rose-500" /> : <Unlock className="w-4 h-4 text-slate-400" />}
+          <h3 className="text-lg font-semibold">Bloqueo de la app</h3>
+        </div>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+          Cuando está activado, la app pide biometría (Face ID / Touch ID) o un PIN para abrirse y al bloquearla.
+        </p>
+        <label className="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200/60 dark:border-white/10 cursor-pointer">
+          <span className="text-sm font-medium">Pedir biometría / PIN al abrir</span>
+          <input type="checkbox" checked={!!settings.authEnabled}
+                 onChange={e => update({ authEnabled: e.target.checked })} className="w-4 h-4" />
+        </label>
+        <button
+          onClick={() => {
+            if (!confirm('Esto eliminará el PIN/credencial guardado. ¿Continuar?')) return;
+            localStorage.removeItem('finance-auth-credential');
+            localStorage.removeItem('finance-auth-setup');
+            sessionStorage.removeItem('finance-auth-unlocked');
+            alert('Credenciales borradas. Si activas el bloqueo de nuevo te pedirá configurar uno nuevo.');
+          }}
+          className="mt-3 text-xs text-rose-600 dark:text-rose-400 hover:underline">
+          Borrar credenciales guardadas
+        </button>
       </Card>
 
       {/* Import / Export */}
