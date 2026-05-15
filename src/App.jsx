@@ -131,26 +131,28 @@ function App() {
     }
   };
 
-  if (auth.status === 'setup-required') {
-    return (
-      <AuthSetup
-        supportsWebAuthn={auth.supportsWebAuthn}
-        error={auth.error}
-        onSetupBiometric={auth.setupBiometric}
-        onSetupPin={auth.setupFallbackPin}
-      />
-    );
-  }
-  if (auth.status === 'locked') {
-    return (
-      <LockScreen
-        authType={auth.authType}
-        error={auth.error}
-        supportsWebAuthn={auth.supportsWebAuthn}
-        onUnlock={auth.unlock}
-        onUnlockPin={auth.unlockWithPin}
-      />
-    );
+  if (settings.authEnabled) {
+    if (auth.status === 'setup-required') {
+      return (
+        <AuthSetup
+          supportsWebAuthn={auth.supportsWebAuthn}
+          error={auth.error}
+          onSetupBiometric={auth.setupBiometric}
+          onSetupPin={auth.setupFallbackPin}
+        />
+      );
+    }
+    if (auth.status === 'locked') {
+      return (
+        <LockScreen
+          authType={auth.authType}
+          error={auth.error}
+          supportsWebAuthn={auth.supportsWebAuthn}
+          onUnlock={auth.unlock}
+          onUnlockPin={auth.unlockWithPin}
+        />
+      );
+    }
   }
 
   return (
@@ -176,9 +178,11 @@ function App() {
             <Button variant="ghost" size="sm" onClick={() => setDarkMode(!darkMode)} className="p-2">
               {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </Button>
-            <Button variant="ghost" size="sm" onClick={auth.lock} className="p-2" title="Bloquear app">
-              <LogOut className="w-5 h-5" />
-            </Button>
+            {settings.authEnabled && (
+              <Button variant="ghost" size="sm" onClick={auth.lock} className="p-2" title="Bloquear app">
+                <LogOut className="w-5 h-5" />
+              </Button>
+            )}
             <Button onClick={() => setIsModalOpen(true)} className="gap-2">
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">Nueva Transacción</span>

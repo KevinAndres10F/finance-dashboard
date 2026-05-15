@@ -6,6 +6,7 @@ const DEFAULTS = {
   locale: 'es',
   startOfMonth: 1,
   notificationsEnabled: true,
+  authEnabled: false,
 };
 
 function load() {
