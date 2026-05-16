@@ -8,7 +8,7 @@ import { useGamification } from './hooks/useGamification';
 import { Card } from './components/ui/Card';
 import { Button } from './components/ui/Button';
 import { Input } from './components/ui/Input';
-import { Tabs } from './components/Tabs';
+import { Sidebar } from './components/Sidebar';
 import { Statistics } from './components/Statistics';
 import { TransactionList } from './components/TransactionList';
 import { Budgets } from './components/Budgets';
@@ -24,8 +24,8 @@ import { Goals } from './components/Goals';
 import { Subscriptions } from './components/Subscriptions';
 import { Settings as SettingsView } from './components/Settings';
 import {
-  Wallet, Plus, X, DollarSign, Moon, Sun, Target, BarChart3, ListTodo,
-  LogOut, Trophy, Flame, Link, Repeat, PiggyBank, Settings as SettingsIcon, Sparkles
+  Wallet, Plus, X, DollarSign, Target, BarChart3, ListTodo,
+  Trophy, Link, Repeat, PiggyBank, Settings as SettingsIcon, Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn, fmtMoney } from './lib/utils';
@@ -43,6 +43,7 @@ function App() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
     return saved ? JSON.parse(saved) : false;
@@ -156,47 +157,27 @@ function App() {
   }
 
   return (
-    <div className="app-bg text-slate-900 dark:text-white font-sans pb-20 md:pb-10 transition-colors">
-      <header className="glass-header sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-slate-900/90 dark:bg-white/90 p-2 rounded-xl shadow-sm">
-              <Wallet className="w-5 h-5 text-white dark:text-slate-900" />
-            </div>
-            <h1 className="text-xl font-bold tracking-tight">Finanzas</h1>
-            <span className="hidden md:inline text-xs px-2 py-0.5 rounded-full bg-slate-100/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400">
-              {settings.currency}
-            </span>
-            {gamification.streak > 0 && (
-              <div className="hidden sm:flex items-center gap-1 bg-amber-50/80 dark:bg-amber-900/30 border border-amber-200/60 dark:border-amber-700/30 px-2.5 py-1 rounded-full">
-                <Flame className="w-3.5 h-3.5 text-amber-500 streak-pulse" />
-                <span className="text-xs font-bold text-amber-700 dark:text-amber-400">{gamification.streak}</span>
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setDarkMode(!darkMode)} className="p-2">
-              {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </Button>
-            {settings.authEnabled && (
-              <Button variant="ghost" size="sm" onClick={auth.lock} className="p-2" title="Bloquear app">
-                <LogOut className="w-5 h-5" />
-              </Button>
-            )}
-            <Button onClick={() => setIsModalOpen(true)} className="gap-2">
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Nueva Transacción</span>
-            </Button>
-          </div>
-        </div>
-      </header>
+    <div className="app-bg text-slate-900 dark:text-white font-sans transition-colors min-h-screen">
+      <Sidebar
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        currency={settings.currency}
+        streak={gamification.streak}
+        darkMode={darkMode}
+        onToggleDarkMode={() => setDarkMode(!darkMode)}
+        authEnabled={settings.authEnabled}
+        onLock={auth.lock}
+        onNewTransaction={() => setIsModalOpen(true)}
+        drawerOpen={drawerOpen}
+        onDrawerToggle={setDrawerOpen}
+      />
 
-      <BudgetAlertBanner budgetsInWarning={budgetsInWarning} budgetsExceeded={budgetsExceeded} />
+      <div className="md:ml-64">
+        <BudgetAlertBanner budgetsInWarning={budgetsInWarning} budgetsExceeded={budgetsExceeded} />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        <Tabs tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
-
-        <AnimatePresence mode="wait">
+        <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 pb-24 md:pb-12 space-y-6">
+          <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
             initial={{ opacity: 0, y: 12 }}
@@ -238,16 +219,10 @@ function App() {
             )}
           </motion.div>
         </AnimatePresence>
-      </main>
+        </main>
+      </div>
 
       <AchievementToast badge={gamification.newBadge} onDismiss={gamification.dismissBadge} />
-
-      <button
-        onClick={() => setIsModalOpen(true)}
-        className="fixed bottom-6 right-6 md:hidden bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 p-4 rounded-full shadow-lg hover:shadow-xl transition-all z-40 backdrop-blur-sm"
-      >
-        <Plus className="w-6 h-6" />
-      </button>
 
       <AnimatePresence>
         {isModalOpen && (
