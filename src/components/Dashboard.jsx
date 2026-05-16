@@ -46,11 +46,11 @@ function KpiCard({ title, value, sub, icon: Icon, iconBg, valueClass, trend, tre
       <Card className="p-5 h-full">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 truncate">{title}</p>
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1 truncate">{title}</p>
             <p className={cn('text-2xl font-bold tracking-tight truncate', valueClass || 'text-slate-900 dark:text-white')}>
               {value}
             </p>
-            {sub && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate">{sub}</p>}
+            {sub && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">{sub}</p>}
           </div>
           <div className={cn('p-2.5 rounded-xl shrink-0', iconBg || 'bg-slate-100 dark:bg-slate-800')}>
             <Icon className="w-5 h-5" />
@@ -82,7 +82,7 @@ function CategoryBar({ name, amount, total, color, rank }) {
     <div className="space-y-1">
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-xs font-bold text-slate-400 dark:text-slate-500 w-4">#{rank}</span>
+          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 w-4">#{rank}</span>
           <span className="truncate font-medium text-slate-700 dark:text-slate-300">{name}</span>
         </div>
         <span className="font-semibold text-slate-900 dark:text-white ml-2 shrink-0">
@@ -98,7 +98,7 @@ function CategoryBar({ name, amount, total, color, rank }) {
           transition={{ duration: 0.6, delay: 0.1 * rank }}
         />
       </div>
-      <p className="text-xs text-slate-400 dark:text-slate-500 text-right">{pct.toFixed(1)}%</p>
+      <p className="text-xs text-slate-500 dark:text-slate-400 text-right">{pct.toFixed(1)}%</p>
     </div>
   );
 }
@@ -115,7 +115,7 @@ function RecentTx({ tx }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{tx.Descripción || '—'}</p>
-        <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
+        <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
           <span>{tx.Categoría}</span>
           <span>·</span>
           <span>{tx.Fecha}</span>
@@ -280,7 +280,7 @@ export function Dashboard({ transactions, stats, budgetData }) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <Card className="p-5">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Patrimonio Neto</p>
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-300">Patrimonio Neto</p>
             <div className={cn('p-2 rounded-xl',
               netWorth >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600'
             )}>
@@ -298,7 +298,7 @@ export function Dashboard({ transactions, stats, budgetData }) {
         </Card>
         <Card className="p-5">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Objetivos de ahorro</p>
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-300">Objetivos de ahorro</p>
             <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600">
               <Target className="w-4 h-4" />
             </div>
@@ -312,7 +312,7 @@ export function Dashboard({ transactions, stats, budgetData }) {
         </Card>
         <Card className="p-5">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Próximos cobros</p>
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-300">Próximos cobros</p>
             <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-600">
               <Repeat className="w-4 h-4" />
             </div>
@@ -472,7 +472,7 @@ export function Dashboard({ transactions, stats, budgetData }) {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-slate-400 dark:text-slate-500">Sin gastos registrados</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Sin gastos registrados</p>
           )}
         </Card>
 
@@ -500,7 +500,7 @@ export function Dashboard({ transactions, stats, budgetData }) {
 
           {/* Gastos semanales mini chart */}
           <div className="mt-4 pt-4 border-t border-slate-100/80 dark:border-slate-700/40">
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Gastos por semana</p>
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">Gastos por semana</p>
             <div className="h-[80px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={metrics.weeklyTrend} barSize={14}>
@@ -535,7 +535,7 @@ export function Dashboard({ transactions, stats, budgetData }) {
           ) : (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <Target className="w-8 h-8 text-slate-200 dark:text-slate-700 mb-2" />
-              <p className="text-sm text-slate-400 dark:text-slate-500">Sin presupuestos configurados</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Sin presupuestos configurados</p>
               <p className="text-xs text-slate-300 dark:text-slate-600 mt-1">Ve a la pestaña Presupuestos</p>
             </div>
           )}
@@ -546,14 +546,14 @@ export function Dashboard({ transactions, stats, budgetData }) {
       <Card className="p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-semibold text-slate-800 dark:text-white">Transacciones Recientes</h3>
-          <span className="text-xs text-slate-400 dark:text-slate-500">Últimas {metrics.recentTxs.length}</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">Últimas {metrics.recentTxs.length}</span>
         </div>
         {metrics.recentTxs.length > 0 ? (
           <div>
             {metrics.recentTxs.map((tx, i) => <RecentTx key={i} tx={tx} />)}
           </div>
         ) : (
-          <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-6">No hay transacciones aún</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-6">No hay transacciones aún</p>
         )}
       </Card>
 

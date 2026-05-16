@@ -26,9 +26,9 @@ export function AchievementToast({ badge, onDismiss }) {
                 ¡Logro desbloqueado!
               </p>
               <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{badge.title}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{badge.desc}</p>
+              <p className="text-xs text-slate-600 dark:text-slate-300 truncate">{badge.desc}</p>
             </div>
-            <button onClick={onDismiss} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 shrink-0">
+            <button onClick={onDismiss} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-100 shrink-0">
               <X className="w-4 h-4" />
             </button>
           </div>

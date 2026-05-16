@@ -29,7 +29,7 @@ export function Goals() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Objetivos de Ahorro</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
             Define metas, fija aportes y mira el progreso
           </p>
         </div>
@@ -49,7 +49,7 @@ export function Goals() {
           </div>
           <div className="mt-4">
             <div className="flex items-center justify-between text-xs mb-1">
-              <span className="text-slate-500 dark:text-slate-400">Progreso global</span>
+              <span className="text-slate-600 dark:text-slate-300">Progreso global</span>
               <span className="font-semibold">{overallPct.toFixed(1)}%</span>
             </div>
             <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
@@ -65,7 +65,7 @@ export function Goals() {
         <Card className="p-12 text-center">
           <Target className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Sin objetivos aún</h3>
-          <p className="text-slate-500 dark:text-slate-400 mb-4">Crea tu primer objetivo para empezar a ahorrar con propósito</p>
+          <p className="text-slate-600 dark:text-slate-300 mb-4">Crea tu primer objetivo para empezar a ahorrar con propósito</p>
           <Button onClick={() => setIsModalOpen(true)}>Crear objetivo</Button>
         </Card>
       ) : (
@@ -109,7 +109,7 @@ function Stat({ label, value, accent }) {
         : 'text-slate-900 dark:text-white';
   return (
     <div>
-      <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">{label}</p>
+      <p className="text-xs text-slate-600 dark:text-slate-300 mb-0.5">{label}</p>
       <p className={cn('text-xl font-bold tracking-tight', c)}>{value}</p>
     </div>
   );
@@ -127,7 +127,7 @@ function GoalCard({ goal, currency, onEdit, onContribute, onRemove }) {
           </div>
           <div className="min-w-0">
             <h3 className="font-bold text-slate-900 dark:text-white truncate">{goal.name}</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-600 dark:text-slate-300">
               Meta: {fmtMoney(goal.target, currency)}
             </p>
           </div>
@@ -153,7 +153,7 @@ function GoalCard({ goal, currency, onEdit, onContribute, onRemove }) {
           <div className="h-full transition-all duration-700"
                style={{ width: `${goal.pct}%`, backgroundColor: isComplete ? '#10b981' : goal.color }} />
         </div>
-        <p className="text-xs text-slate-500 dark:text-slate-400 text-right">
+        <p className="text-xs text-slate-600 dark:text-slate-300 text-right">
           Faltan {fmtMoney(goal.remaining, currency)}
         </p>
       </div>
@@ -238,7 +238,7 @@ function GoalModal({ editing, onClose, onSave }) {
                   <button key={p.id} type="button" onClick={() => onPreset(p.id)}
                     className={cn('flex flex-col items-center gap-1 p-2 rounded-xl border text-xs transition-all',
                       isActive ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20'
-                               : 'border-slate-200/60 dark:border-white/10 hover:bg-slate-50/60 dark:hover:bg-slate-800/40'
+                               : 'border-slate-200/80 dark:border-white/15 hover:bg-slate-50/60 dark:hover:bg-slate-800/40'
                     )}>
                     <Icon className="w-4 h-4" style={{ color: p.color }} />
                     <span className="truncate w-full text-center">{p.name.split(' ')[0]}</span>
@@ -273,7 +273,7 @@ function ContributeModal({ goal, currency, onClose, onContribute }) {
           <button onClick={onClose}><X className="w-5 h-5 text-slate-400 hover:text-slate-700" /></button>
         </div>
         <form onSubmit={(e) => { e.preventDefault(); onContribute(Number(amount)); }} className="p-6 space-y-4">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-slate-600 dark:text-slate-300">
             Faltan <span className="font-semibold text-slate-700 dark:text-slate-200">{fmtMoney(goal.remaining, currency)}</span> para el objetivo.
           </p>
           <Field label="Cantidad a aportar">

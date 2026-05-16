@@ -23,7 +23,7 @@ export function Subscriptions({ transactions }) {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Suscripciones y recurrentes</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
             Detección automática + lista manual + calendario de cobros
           </p>
         </div>
@@ -50,7 +50,7 @@ export function Subscriptions({ transactions }) {
           <button key={t.id} onClick={() => setView(t.id)}
             className={cn('px-3 py-1.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-1.5',
               view === t.id ? 'bg-white/80 dark:bg-white/10 text-slate-900 dark:text-white shadow-sm'
-                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                            : 'text-slate-600 dark:text-slate-300 hover:text-slate-700 dark:hover:text-slate-200'
             )}>
             <t.icon className="w-3.5 h-3.5" /> {t.label}
           </button>
@@ -63,7 +63,7 @@ export function Subscriptions({ transactions }) {
             <Card className="p-12 text-center">
               <Repeat className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">No hemos detectado suscripciones aún</h3>
-              <p className="text-slate-500 dark:text-slate-400 mb-4 text-sm">
+              <p className="text-slate-600 dark:text-slate-300 mb-4 text-sm">
                 La detección busca cargos repetidos en al menos 2 meses con el mismo importe (±10%).
               </p>
               <Button onClick={() => setIsModalOpen(true)}>Añadir manual</Button>
@@ -75,7 +75,7 @@ export function Subscriptions({ transactions }) {
                   <div className="flex items-start justify-between mb-3">
                     <div className="min-w-0">
                       <h3 className="font-bold text-slate-900 dark:text-white truncate">{s.name}</h3>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{s.category}</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-300">{s.category}</p>
                     </div>
                     <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full',
                       s.source === 'auto'
@@ -90,7 +90,7 @@ export function Subscriptions({ transactions }) {
                     <span className="text-xs text-slate-400 font-normal ml-1">/{s.cadence === 'yearly' ? 'año' : 'mes'}</span>
                   </p>
                   {s.nextDate && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                    <p className="text-xs text-slate-600 dark:text-slate-300 mb-3">
                       Próximo cobro: <span className="font-medium text-slate-700 dark:text-slate-300">{fmtDate(s.nextDate)}</span>
                     </p>
                   )}
@@ -126,7 +126,7 @@ export function Subscriptions({ transactions }) {
                 const cls = {
                   urgent: 'bg-rose-50/80 dark:bg-rose-900/20 border-rose-200/60 dark:border-rose-700/30 text-rose-700 dark:text-rose-400',
                   soon:   'bg-amber-50/80 dark:bg-amber-900/20 border-amber-200/60 dark:border-amber-700/30 text-amber-700 dark:text-amber-400',
-                  later:  'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200/60 dark:border-white/10 text-slate-700 dark:text-slate-300',
+                  later:  'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200/80 dark:border-white/15 text-slate-700 dark:text-slate-300',
                 }[urgency];
                 return (
                   <div key={b.id} className={cn('flex items-center justify-between p-3 rounded-xl border', cls)}>
@@ -156,7 +156,7 @@ export function Subscriptions({ transactions }) {
           ) : (
             <div className="space-y-2">
               {subs.ignored.map(id => (
-                <div key={id} className="flex items-center justify-between p-3 rounded-xl border border-slate-200/60 dark:border-white/10">
+                <div key={id} className="flex items-center justify-between p-3 rounded-xl border border-slate-200/80 dark:border-white/15">
                   <span className="text-sm text-slate-600 dark:text-slate-300 truncate">{id.replace(/^auto:/, '')}</span>
                   <Button variant="ghost" size="sm" onClick={() => subs.unignore(id)} className="gap-1">
                     <Eye className="w-3.5 h-3.5" /> Restaurar
@@ -186,7 +186,7 @@ function Kpi({ label, value, icon: Icon, color }) {
   return (
     <Card className="p-4">
       <div className="flex items-center justify-between mb-1">
-        <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
+        <p className="text-xs text-slate-600 dark:text-slate-300">{label}</p>
         <div className={cn('p-1.5 rounded-lg', cls.bg)}><Icon className={cn('w-3.5 h-3.5', cls.ic)} /></div>
       </div>
       <p className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">{value}</p>
@@ -211,7 +211,7 @@ function ManualModal({ onClose, onSave }) {
             <Field label="Importe"><Input type="number" step="0.01" required value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} /></Field>
             <Field label="Frecuencia">
               <select value={form.cadence} onChange={e => setForm({ ...form, cadence: e.target.value })}
-                className="w-full h-10 rounded-xl bg-white/60 dark:bg-slate-800/60 border border-white/50 dark:border-white/10 px-3 text-sm">
+                className="w-full h-10 rounded-xl bg-white/85 dark:bg-slate-800/75 border border-slate-200/80 dark:border-white/15 px-3 text-sm">
                 <option value="monthly">Mensual</option>
                 <option value="yearly">Anual</option>
               </select>

@@ -35,7 +35,7 @@ export function AuthSetup({ onSetupBiometric, onSetupPin, supportsWebAuthn, erro
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
           Configura tu acceso
         </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-8">
+        <p className="text-sm text-slate-600 dark:text-slate-300 mb-8">
           Protege tus datos financieros con biometría o PIN
         </p>
 
@@ -54,7 +54,7 @@ export function AuthSetup({ onSetupBiometric, onSetupPin, supportsWebAuthn, erro
                   <p className="font-semibold text-slate-900 dark:text-white text-sm">
                     Huella / Face ID
                   </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
                     Usa la biometría de tu dispositivo
                   </p>
                 </div>
@@ -72,7 +72,7 @@ export function AuthSetup({ onSetupBiometric, onSetupPin, supportsWebAuthn, erro
               </div>
               <div>
                 <p className="font-semibold text-slate-900 dark:text-white text-sm">PIN numérico</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Crea un código de 4+ dígitos</p>
+                <p className="text-xs text-slate-600 dark:text-slate-300">Crea un código de 4+ dígitos</p>
               </div>
             </motion.button>
 
@@ -125,7 +125,7 @@ export function AuthSetup({ onSetupBiometric, onSetupPin, supportsWebAuthn, erro
           </form>
         )}
 
-        <p className="text-xs text-slate-400 dark:text-slate-500 mt-6">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-6">
           Solo tú puedes acceder a tus datos
         </p>
       </motion.div>

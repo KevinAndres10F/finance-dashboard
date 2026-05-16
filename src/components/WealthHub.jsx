@@ -16,7 +16,7 @@ export function WealthHub() {
           <button key={t.id} onClick={() => setView(t.id)}
             className={cn('px-3 py-1.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-1.5',
               view === t.id ? 'bg-white/80 dark:bg-white/10 text-slate-900 dark:text-white shadow-sm'
-                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                            : 'text-slate-600 dark:text-slate-300 hover:text-slate-700 dark:hover:text-slate-200'
             )}>
             <t.icon className="w-3.5 h-3.5" /> {t.label}
           </button>

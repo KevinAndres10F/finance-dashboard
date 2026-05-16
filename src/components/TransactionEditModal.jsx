@@ -48,7 +48,7 @@ export function TransactionEditModal({ tx, idx, meta, categories, onClose, onSav
                       ? t === 'Gasto'
                         ? 'bg-rose-50 dark:bg-rose-900/30 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400'
                         : 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400'
-                      : 'bg-white/40 dark:bg-slate-700/40 border-slate-200/60 dark:border-white/10 text-slate-600 dark:text-slate-300'
+                      : 'bg-white/40 dark:bg-slate-700/40 border-slate-200/80 dark:border-white/15 text-slate-600 dark:text-slate-300'
                   )}>
                   {t}
                 </button>
@@ -66,7 +66,7 @@ export function TransactionEditModal({ tx, idx, meta, categories, onClose, onSav
           <div className="grid grid-cols-2 gap-3">
             <Field label="Categoría">
               <select value={form.Categoría} onChange={e => setForm({ ...form, Categoría: e.target.value })}
-                className="w-full h-10 rounded-xl bg-white/60 dark:bg-slate-800/60 border border-white/50 dark:border-white/10 px-3 text-sm">
+                className="w-full h-10 rounded-xl bg-white/85 dark:bg-slate-800/75 border border-slate-200/80 dark:border-white/15 px-3 text-sm">
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </Field>
@@ -95,7 +95,7 @@ export function TransactionEditModal({ tx, idx, meta, categories, onClose, onSav
 
           <Field label="Notas">
             <textarea rows="3" value={notes} onChange={e => setNotes(e.target.value)}
-              className="w-full rounded-xl bg-white/60 dark:bg-slate-800/60 border border-white/50 dark:border-white/10 px-3 py-2 text-sm" />
+              className="w-full rounded-xl bg-white/85 dark:bg-slate-800/75 border border-slate-200/80 dark:border-white/15 px-3 py-2 text-sm" />
           </Field>
 
           <label className="flex items-center gap-2 cursor-pointer text-sm">

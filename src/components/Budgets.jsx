@@ -30,7 +30,7 @@ export function Budgets({ transactions, categories }) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Presupuestos</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
             Define límites de gasto por categoría
           </p>
         </div>
@@ -46,7 +46,7 @@ export function Budgets({ transactions, categories }) {
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
             No tienes presupuestos configurados
           </h3>
-          <p className="text-slate-500 dark:text-slate-400 mb-4">
+          <p className="text-slate-600 dark:text-slate-300 mb-4">
             Crea tu primer presupuesto para controlar tus gastos
           </p>
           <Button onClick={() => setIsModalOpen(true)}>
@@ -62,13 +62,13 @@ export function Budgets({ transactions, categories }) {
                   <h3 className="font-semibold text-slate-900 dark:text-white">
                     {budget.category}
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
                     Límite: {fmtMoney(budget.limit, C)}
                   </p>
                 </div>
                 <button
                   onClick={() => removeBudget(budget.id)}
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-100"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -134,7 +134,7 @@ export function Budgets({ transactions, categories }) {
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-100"
               >
                 <X className="w-5 h-5" />
               </button>

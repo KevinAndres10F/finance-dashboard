@@ -41,7 +41,7 @@ export function Debts() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Gestión de Deudas</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
             Simula estrategias snowball / avalancha y mira cuánto te ahorras
           </p>
         </div>
@@ -63,7 +63,7 @@ export function Debts() {
         <Card className="p-12 text-center">
           <CreditCard className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">Sin deudas registradas</h3>
-          <p className="text-slate-500 dark:text-slate-400 mb-4">Añade tus deudas para simular planes de pago</p>
+          <p className="text-slate-600 dark:text-slate-300 mb-4">Añade tus deudas para simular planes de pago</p>
           <Button onClick={() => setIsModalOpen(true)}>Añadir primera deuda</Button>
         </Card>
       ) : (
@@ -80,7 +80,7 @@ export function Debts() {
                         <CreditCard className="w-4 h-4 text-rose-500" />
                         <h3 className="font-bold text-slate-900 dark:text-white truncate">{d.name}</h3>
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                      <p className="text-xs text-slate-600 dark:text-slate-300">
                         {KIND_OPTIONS.find(k => k.id === d.kind)?.label} · APR {Number(d.apr).toFixed(2)}%
                       </p>
                     </div>
@@ -134,7 +134,7 @@ export function Debts() {
                     className={cn('flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium transition-all',
                       strategy === 'avalanche'
                         ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300'
-                        : 'border-slate-200/60 dark:border-white/10'
+                        : 'border-slate-200/80 dark:border-white/15'
                     )}>
                     <Mountain className="w-3.5 h-3.5" /> Avalancha
                   </button>
@@ -142,7 +142,7 @@ export function Debts() {
                     className={cn('flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium transition-all',
                       strategy === 'snowball'
                         ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300'
-                        : 'border-slate-200/60 dark:border-white/10'
+                        : 'border-slate-200/80 dark:border-white/15'
                     )}>
                     <Snowflake className="w-3.5 h-3.5" /> Bola de nieve
                   </button>
@@ -207,7 +207,7 @@ function KpiBox({ label, value, icon: Icon, color }) {
   return (
     <Card className="p-4">
       <div className="flex items-center justify-between mb-1">
-        <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
+        <p className="text-xs text-slate-600 dark:text-slate-300">{label}</p>
         <div className={cn('p-1.5 rounded-lg', cls.bg)}>
           <Icon className={cn('w-3.5 h-3.5', cls.ic)} />
         </div>
@@ -238,7 +238,7 @@ function DebtModal({ editing, onClose, onSave }) {
           <Field label="Nombre"><Input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ej: Visa Banco X" /></Field>
           <Field label="Tipo">
             <select value={form.kind} onChange={e => setForm({ ...form, kind: e.target.value })}
-              className="w-full h-10 rounded-xl bg-white/60 dark:bg-slate-800/60 border border-white/50 dark:border-white/10 px-3 text-sm">
+              className="w-full h-10 rounded-xl bg-white/85 dark:bg-slate-800/75 border border-slate-200/80 dark:border-white/15 px-3 text-sm">
               {KIND_OPTIONS.map(k => <option key={k.id} value={k.id}>{k.label}</option>)}
             </select>
           </Field>

@@ -96,7 +96,7 @@ export function InsightsPanel({ transactions, budgetData }) {
 
   return (
     <Card className="p-5">
-      <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">
+      <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-3">
         Insights del mes
       </h3>
       <div className="space-y-2.5">

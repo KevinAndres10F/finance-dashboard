@@ -66,7 +66,7 @@ export function NetWorth() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Patrimonio Neto</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Activos − Pasivos en una sola vista</p>
+          <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">Activos − Pasivos en una sola vista</p>
         </div>
         <Button onClick={() => { setEditing(null); setIsModalOpen(true); }} className="gap-2">
           <Plus className="w-4 h-4" /> Nueva cuenta
@@ -77,7 +77,7 @@ export function NetWorth() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-5">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Patrimonio Neto</p>
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-300">Patrimonio Neto</p>
             <div className={cn('p-2 rounded-xl',
               totals.netWorth >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/30' : 'bg-rose-50 dark:bg-rose-900/30'
             )}>
@@ -103,7 +103,7 @@ export function NetWorth() {
 
         <Card className="p-5">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Activos totales</p>
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-300">Activos totales</p>
             <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/30">
               <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             </div>
@@ -111,12 +111,12 @@ export function NetWorth() {
           <p className="text-3xl font-bold text-emerald-700 dark:text-emerald-400 tracking-tight">
             {fmtMoney(totals.assets, settings.currency)}
           </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">{assets.length} cuenta{assets.length !== 1 && 's'}</p>
+          <p className="text-xs text-slate-600 dark:text-slate-300 mt-3">{assets.length} cuenta{assets.length !== 1 && 's'}</p>
         </Card>
 
         <Card className="p-5">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Pasivos totales</p>
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-300">Pasivos totales</p>
             <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-900/30">
               <TrendingDown className="w-5 h-5 text-rose-600 dark:text-rose-400" />
             </div>
@@ -124,7 +124,7 @@ export function NetWorth() {
           <p className="text-3xl font-bold text-rose-700 dark:text-rose-400 tracking-tight">
             {fmtMoney(totals.liabilities + debtTotals.totalBalance, settings.currency)}
           </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">
+          <p className="text-xs text-slate-600 dark:text-slate-300 mt-3">
             {liabilities.length} cuenta{liabilities.length !== 1 && 's'} + {debtTotals.count} deuda{debtTotals.count !== 1 && 's'}
           </p>
         </Card>
@@ -232,7 +232,7 @@ function AccountList({ title, accounts, colors, onEdit, onRemove, onToggle, curr
         <span className="text-xs text-slate-400">{accounts.length}</span>
       </div>
       {accounts.length === 0 ? (
-        <p className="text-sm text-slate-400 dark:text-slate-500 py-6 text-center">Sin {title.toLowerCase()} aún</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 py-6 text-center">Sin {title.toLowerCase()} aún</p>
       ) : (
         <div className="space-y-2">
           {accounts.map((a, i) => {
@@ -250,7 +250,7 @@ function AccountList({ title, accounts, colors, onEdit, onRemove, onToggle, curr
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-slate-900 dark:text-white truncate text-sm">{a.name}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                  <p className="text-xs text-slate-600 dark:text-slate-300 truncate">
                     {meta?.label} {a.institution && `· ${a.institution}`}
                   </p>
                 </div>
@@ -288,7 +288,7 @@ function AccountModal({ editing, onClose, onSave }) {
       <div className="glass w-full max-w-md rounded-2xl overflow-hidden">
         <div className="flex items-center justify-between p-6 border-b border-white/30 dark:border-white/10">
           <h3 className="text-lg font-semibold">{editing ? 'Editar cuenta' : 'Nueva cuenta'}</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-100">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -299,7 +299,7 @@ function AccountModal({ editing, onClose, onSave }) {
           </Field>
           <Field label="Tipo">
             <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}
-              className="w-full h-10 rounded-xl bg-white/60 dark:bg-slate-800/60 border border-white/50 dark:border-white/10 px-3 text-sm">
+              className="w-full h-10 rounded-xl bg-white/85 dark:bg-slate-800/75 border border-slate-200/80 dark:border-white/15 px-3 text-sm">
               <optgroup label="Activos">
                 {ACCOUNT_TYPES.filter(t => t.kind === 'asset').map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
               </optgroup>

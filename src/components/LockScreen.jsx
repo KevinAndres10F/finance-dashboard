@@ -42,7 +42,7 @@ export function LockScreen({ onUnlock, onUnlockPin, authType, error, supportsWeb
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
           Finanzas
         </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-8">
+        <p className="text-sm text-slate-600 dark:text-slate-300 mb-8">
           Verifica tu identidad para continuar
         </p>
 
@@ -65,7 +65,7 @@ export function LockScreen({ onUnlock, onUnlockPin, authType, error, supportsWeb
 
             <button
               onClick={() => setShowPin(true)}
-              className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 underline underline-offset-2"
+              className="text-sm text-slate-600 dark:text-slate-300 hover:text-slate-700 dark:hover:text-slate-100 underline underline-offset-2"
             >
               Usar PIN en su lugar
             </button>
@@ -91,7 +91,7 @@ export function LockScreen({ onUnlock, onUnlockPin, authType, error, supportsWeb
               <button
                 type="button"
                 onClick={() => { setShowPin(false); onUnlock(); }}
-                className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 underline underline-offset-2"
+                className="text-sm text-slate-600 dark:text-slate-300 hover:text-slate-700 dark:hover:text-slate-100 underline underline-offset-2"
               >
                 Usar biometría
               </button>

@@ -65,7 +65,7 @@ export function Sidebar({
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
-              className="fixed left-0 top-0 bottom-0 w-72 max-w-[85vw] z-50 md:hidden flex flex-col glass border-r border-slate-200/60 dark:border-white/10"
+              className="fixed left-0 top-0 bottom-0 w-72 max-w-[85vw] z-50 md:hidden flex flex-col glass border-r border-slate-200/80 dark:border-white/15"
             >
               <SidebarBody
                 tabs={tabs}
@@ -88,7 +88,7 @@ export function Sidebar({
       </AnimatePresence>
 
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-64 z-20 flex-col glass border-r border-slate-200/60 dark:border-white/10">
+      <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-64 z-20 flex-col glass border-r border-slate-200/80 dark:border-white/15">
         <SidebarBody
           tabs={tabs}
           activeTab={activeTab}
@@ -119,7 +119,7 @@ function SidebarBody({
   return (
     <>
       {/* Header section */}
-      <div className="p-5 border-b border-slate-200/60 dark:border-white/10">
+      <div className="p-5 border-b border-slate-200/80 dark:border-white/15">
         <div className="flex items-center gap-3">
           <div className="bg-slate-900/90 dark:bg-white/90 p-2 rounded-xl shadow-sm shrink-0">
             <Wallet className="w-5 h-5 text-white dark:text-slate-900" />
@@ -127,7 +127,7 @@ function SidebarBody({
           <div className="min-w-0 flex-1">
             <h1 className="text-lg font-bold tracking-tight leading-tight">Finanzas</h1>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-medium">
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100/80 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 font-medium">
                 {currency}
               </span>
               {streak > 0 && (
@@ -166,13 +166,13 @@ function SidebarBody({
                 'relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',
                 isActive
                   ? 'text-slate-900 dark:text-white'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-white/40 dark:hover:bg-white/5'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-white/40 dark:hover:bg-white/5'
               )}
             >
               {isActive && (
                 <motion.div
                   layoutId={layoutId}
-                  className="absolute inset-0 rounded-xl bg-white/80 dark:bg-white/10 shadow-sm border border-white/60 dark:border-white/15"
+                  className="absolute inset-0 rounded-xl bg-white/90 dark:bg-white/15 shadow-sm border border-slate-200/80 dark:border-white/20"
                   transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
                 />
               )}
@@ -186,7 +186,7 @@ function SidebarBody({
       </nav>
 
       {/* Footer */}
-      <div className="p-3 border-t border-slate-200/60 dark:border-white/10 flex items-center gap-1">
+      <div className="p-3 border-t border-slate-200/80 dark:border-white/15 flex items-center gap-1">
         <button
           onClick={onToggleDarkMode}
           className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-white/40 dark:hover:bg-white/10 transition-colors"

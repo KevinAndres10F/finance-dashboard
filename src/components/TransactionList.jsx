@@ -16,7 +16,7 @@ const MONTHS = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
 ];
 
-const selectCls = "h-9 px-3 rounded-xl text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-400/50 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-200";
+const selectCls = "h-9 px-3 rounded-xl text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-400/50 bg-white/85 dark:bg-slate-800/75 backdrop-blur-sm border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-200";
 
 export function TransactionList({ transactions, categories, updateTransaction, deleteTransaction }) {
   const { settings } = useSettings();
@@ -132,7 +132,7 @@ export function TransactionList({ transactions, categories, updateTransaction, d
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => navigateMonth(-1)}
               disabled={filterMonth === 'all' || filterYear === 'all'}
-              className="h-9 w-9 flex items-center justify-center rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm text-slate-600 dark:text-slate-400 hover:bg-white/90 dark:hover:bg-slate-700/70 disabled:opacity-30 transition-all">
+              className="h-9 w-9 flex items-center justify-center rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/85 dark:bg-slate-800/75 backdrop-blur-sm text-slate-600 dark:text-slate-400 hover:bg-white/90 dark:hover:bg-slate-700/70 disabled:opacity-30 transition-all">
               <ChevronLeft className="w-4 h-4" />
             </button>
             <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className={selectCls}>
@@ -145,7 +145,7 @@ export function TransactionList({ transactions, categories, updateTransaction, d
             </select>
             <button onClick={() => navigateMonth(1)}
               disabled={filterMonth === 'all' || filterYear === 'all'}
-              className="h-9 w-9 flex items-center justify-center rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm text-slate-600 dark:text-slate-400 hover:bg-white/90 dark:hover:bg-slate-700/70 disabled:opacity-30 transition-all">
+              className="h-9 w-9 flex items-center justify-center rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/85 dark:bg-slate-800/75 backdrop-blur-sm text-slate-600 dark:text-slate-400 hover:bg-white/90 dark:hover:bg-slate-700/70 disabled:opacity-30 transition-all">
               <ChevronRight className="w-4 h-4" />
             </button>
             <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1 hidden sm:inline">{periodLabel}</span>
@@ -163,7 +163,7 @@ export function TransactionList({ transactions, categories, updateTransaction, d
           </div>
 
           {showFilters && (
-            <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-200/60 dark:border-white/10">
+            <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-200/80 dark:border-white/15">
               <div className="relative flex-1 min-w-48">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input placeholder="Buscar texto, categoría, tag o nota..." value={searchTerm}
@@ -207,7 +207,7 @@ export function TransactionList({ transactions, categories, updateTransaction, d
             { label: 'Balance',  value: periodSummary.balance,  cls: periodSummary.balance >= 0 ? 'text-indigo-700 dark:text-indigo-400' : 'text-rose-700 dark:text-rose-400' },
           ].map(({ label, value, cls }) => (
             <Card key={label} className="p-3 text-center">
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">{label}</p>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mb-0.5">{label}</p>
               <p className={cn('text-lg font-bold', cls)}>{fmtMoney(value, settings.currency, { sign: label === 'Balance' })}</p>
             </Card>
           ))}
@@ -217,7 +217,7 @@ export function TransactionList({ transactions, categories, updateTransaction, d
       <Card className="p-0 overflow-hidden">
         {filtered.length === 0 ? (
           <div className="p-12 text-center">
-            <p className="text-slate-500 dark:text-slate-400 font-medium">
+            <p className="text-slate-600 dark:text-slate-300 font-medium">
               {hasSecondary ? 'Sin resultados con esos filtros' : `Sin transacciones en ${periodLabel}`}
             </p>
             {hasSecondary && (
@@ -237,7 +237,7 @@ export function TransactionList({ transactions, categories, updateTransaction, d
       </Card>
 
       {filtered.length > 0 && (
-        <p className="text-xs text-slate-400 dark:text-slate-500 text-center">
+        <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
           {filtered.length} transacción{filtered.length !== 1 ? 'es' : ''} · {periodLabel}
         </p>
       )}
@@ -276,7 +276,7 @@ function TransactionItem({ transaction, meta, currency, onClick }) {
             {meta.reviewed && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" title="Revisada" />}
             {meta.notes && <StickyNote className="w-3.5 h-3.5 text-amber-500 shrink-0" title="Tiene notas" />}
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
+          <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 flex-wrap">
             <span className="truncate">{transaction.Categoría}</span>
             <span>·</span>
             <span className="shrink-0">{transaction.Fecha}</span>

@@ -37,7 +37,7 @@ export function BudgetAlertBanner({ budgetsInWarning, budgetsExceeded }) {
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 flex-wrap">
             <div className="flex items-center gap-1.5 mt-0.5">
-              <Target className="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" />
+              <Target className="w-4 h-4 text-slate-600 dark:text-slate-300 shrink-0" />
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
                 Alertas de presupuesto:
               </span>
@@ -68,7 +68,7 @@ export function BudgetAlertBanner({ budgetsInWarning, budgetsExceeded }) {
           </div>
           <button
             onClick={dismiss}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 shrink-0 mt-0.5"
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-100 shrink-0 mt-0.5"
             aria-label="Cerrar alertas"
           >
             <X className="w-4 h-4" />

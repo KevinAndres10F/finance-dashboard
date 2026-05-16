@@ -122,7 +122,7 @@ export function Settings({ transactions, categories, importTransactions }) {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Ajustes</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Moneda, reglas, import/export y datos</p>
+        <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">Moneda, reglas, import/export y datos</p>
       </div>
 
       {/* Currency */}
@@ -135,7 +135,7 @@ export function Settings({ transactions, categories, importTransactions }) {
           <div>
             <label className="text-sm font-medium block mb-2">Moneda</label>
             <select value={settings.currency} onChange={e => update({ currency: e.target.value })}
-              className="w-full h-10 rounded-xl bg-white/60 dark:bg-slate-800/60 border border-white/50 dark:border-white/10 px-3 text-sm">
+              className="w-full h-10 rounded-xl bg-white/85 dark:bg-slate-800/75 border border-slate-200/80 dark:border-white/15 px-3 text-sm">
               {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.symbol} {c.code} · {c.label}</option>)}
             </select>
             <p className="text-xs text-slate-400 mt-1">Vista previa: {fmtMoney(1234.56, settings.currency)}</p>
@@ -155,7 +155,7 @@ export function Settings({ transactions, categories, importTransactions }) {
           <Wand2 className="w-4 h-4 text-violet-500" />
           <h3 className="text-lg font-semibold">Reglas de auto-categorización</h3>
         </div>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+        <p className="text-xs text-slate-600 dark:text-slate-300 mb-4">
           Si la descripción de una nueva transacción contiene el patrón, se asigna automáticamente la categoría.
         </p>
 
@@ -163,7 +163,7 @@ export function Settings({ transactions, categories, importTransactions }) {
               className="grid grid-cols-1 md:grid-cols-[2fr_1fr_auto] gap-2 mb-4">
           <Input placeholder="Patrón (ej: starbucks)" value={match} onChange={e => setMatch(e.target.value)} />
           <select value={category} onChange={e => setCategory(e.target.value)}
-            className="h-10 rounded-xl bg-white/60 dark:bg-slate-800/60 border border-white/50 dark:border-white/10 px-3 text-sm">
+            className="h-10 rounded-xl bg-white/85 dark:bg-slate-800/75 border border-slate-200/80 dark:border-white/15 px-3 text-sm">
             {categories.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
           <Button type="submit" className="gap-1.5"><Plus className="w-4 h-4" /> Añadir</Button>
@@ -178,7 +178,7 @@ export function Settings({ transactions, categories, importTransactions }) {
             <div className="flex flex-wrap gap-1.5">
               {ruleSuggestions.map(s => (
                 <button key={`${s.match}-${s.category}`} onClick={() => addRule(s.match, s.category)}
-                  className="text-xs px-2.5 py-1 rounded-lg border border-violet-200/50 dark:border-violet-700/30 bg-white/60 dark:bg-slate-800/60 hover:bg-violet-100/60 dark:hover:bg-violet-900/20 transition-colors">
+                  className="text-xs px-2.5 py-1 rounded-lg border border-violet-200/50 dark:border-violet-700/30 bg-white/85 dark:bg-slate-800/75 hover:bg-violet-100/60 dark:hover:bg-violet-900/20 transition-colors">
                   <span className="font-mono">{s.match}</span> → <span className="font-semibold">{s.category}</span>
                   <span className="text-slate-400 ml-1">({s.count}×)</span>
                 </button>
@@ -192,7 +192,7 @@ export function Settings({ transactions, categories, importTransactions }) {
         ) : (
           <div className="space-y-1.5">
             {rules.map(r => (
-              <div key={r.id} className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200/60 dark:border-white/10">
+              <div key={r.id} className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200/80 dark:border-white/15">
                 <div className="flex items-center gap-2 text-sm">
                   <span className="font-mono text-slate-600 dark:text-slate-300">{r.match}</span>
                   <span className="text-slate-400">→</span>
@@ -213,10 +213,10 @@ export function Settings({ transactions, categories, importTransactions }) {
           {settings.authEnabled ? <Lock className="w-4 h-4 text-rose-500" /> : <Unlock className="w-4 h-4 text-slate-400" />}
           <h3 className="text-lg font-semibold">Bloqueo de la app</h3>
         </div>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+        <p className="text-xs text-slate-600 dark:text-slate-300 mb-4">
           Cuando está activado, la app pide biometría (Face ID / Touch ID) o un PIN para abrirse y al bloquearla.
         </p>
-        <label className="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200/60 dark:border-white/10 cursor-pointer">
+        <label className="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200/80 dark:border-white/15 cursor-pointer">
           <span className="text-sm font-medium">Pedir biometría / PIN al abrir</span>
           <input type="checkbox" checked={!!settings.authEnabled}
                  onChange={e => update({ authEnabled: e.target.checked })} className="w-4 h-4" />

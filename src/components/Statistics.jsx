@@ -357,7 +357,7 @@ function MetricCard({ title, value, icon: Icon, trend, className }) {
     <Card className="p-4">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">{title}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-300 mb-1">{title}</p>
           <p className={cn("text-2xl font-bold", className)}>
             {value}
           </p>

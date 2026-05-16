@@ -46,7 +46,7 @@ export function SankeyFlow({ transactions }) {
     return (
       <Card className="p-12 text-center">
         <GitMerge className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
-        <p className="text-sm text-slate-500 dark:text-slate-400">Sin datos del mes para visualizar el flujo</p>
+        <p className="text-sm text-slate-600 dark:text-slate-300">Sin datos del mes para visualizar el flujo</p>
       </Card>
     );
   }

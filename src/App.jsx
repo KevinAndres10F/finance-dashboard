@@ -242,7 +242,7 @@ function App() {
               <div className="glass w-full max-w-md rounded-2xl pointer-events-auto overflow-hidden max-h-[92vh] overflow-y-auto">
                 <div className="flex items-center justify-between p-6 border-b border-white/30 dark:border-white/10 sticky top-0 glass z-10">
                   <h3 className="text-lg font-semibold">Nueva Transacción</h3>
-                  <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                  <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-100">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
@@ -310,7 +310,7 @@ function App() {
                               setIsCustomCategory(false);
                               setFormData(prev => ({ ...prev, Categoría: categories[0] || 'Otros' }));
                             }}
-                            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
+                            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
                             title="Volver a la lista">
                             <X className="w-5 h-5" />
                           </button>

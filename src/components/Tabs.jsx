@@ -16,7 +16,7 @@ export function Tabs({ tabs, activeTab, onTabChange }) {
                 "transition-colors duration-200",
                 isActive
                   ? "text-slate-900 dark:text-white"
-                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                  : "text-slate-600 dark:text-slate-300 hover:text-slate-700 dark:hover:text-slate-100"
               )}
             >
               {isActive && (

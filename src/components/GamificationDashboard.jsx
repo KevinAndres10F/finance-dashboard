@@ -8,7 +8,7 @@ function LevelBar({ level }) {
     <Card className="p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+          <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">
             Nivel {level.current.level}
           </p>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -23,7 +23,7 @@ function LevelBar({ level }) {
 
       {level.next && (
         <div className="space-y-1.5">
-          <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
+          <div className="flex justify-between text-xs text-slate-600 dark:text-slate-300">
             <span>Nivel {level.current.level}</span>
             <span>Nivel {level.next.level} — {level.next.name}</span>
           </div>
@@ -35,7 +35,7 @@ function LevelBar({ level }) {
               transition={{ duration: 0.8, ease: 'easeOut' }}
             />
           </div>
-          <p className="text-xs text-slate-400 dark:text-slate-500 text-right">
+          <p className="text-xs text-slate-500 dark:text-slate-400 text-right">
             {level.progress.toFixed(0)}% hacia el siguiente nivel
           </p>
         </div>
@@ -55,11 +55,11 @@ function StreakCard({ streak, longest }) {
     <Card className="p-6 flex items-center gap-5">
       <div className={cn("text-4xl streak-pulse", streak > 0 ? "" : "opacity-30")}>🔥</div>
       <div>
-        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Racha actual</p>
+        <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Racha actual</p>
         <p className="text-3xl font-bold text-slate-900 dark:text-white">
           {streak} <span className="text-lg font-medium text-slate-500">{streak === 1 ? 'día' : 'días'}</span>
         </p>
-        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
           Mejor racha: {longest} {longest === 1 ? 'día' : 'días'}
         </p>
       </div>
@@ -75,7 +75,7 @@ function BadgeGrid({ badges }) {
     <Card className="p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Insignias</h3>
-        <span className="text-sm text-slate-500 dark:text-slate-400">
+        <span className="text-sm text-slate-600 dark:text-slate-300">
           {earned.length}/{badges.length}
         </span>
       </div>
@@ -141,7 +141,7 @@ function MissionList({ missions }) {
                   transition={{ duration: 0.6 }}
                 />
               </div>
-              <span className="text-xs text-slate-400 dark:text-slate-500 tabular-nums">
+              <span className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
                 {m.progress}/{m.target}
               </span>
             </div>
@@ -157,7 +157,7 @@ export function GamificationDashboard({ xp, level, streak, longestStreak, badges
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Logros</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+        <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
           Tu progreso financiero gamificado
         </p>
       </div>

@@ -47,7 +47,7 @@ export function ConnectionsPanel() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Conexiones</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+        <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
           Integra tus cuentas financieras en un solo lugar
         </p>
       </div>
@@ -60,7 +60,7 @@ export function ConnectionsPanel() {
           </div>
           <div>
             <p className="text-sm font-semibold text-slate-900 dark:text-white">Próximamente</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
               Las integraciones con Plaid y SnapTrade requieren un backend seguro para gestionar
               tokens OAuth. Estarán disponibles en la próxima iteración.
             </p>
@@ -83,7 +83,7 @@ export function ConnectionsPanel() {
                   'text-xs font-semibold px-2.5 py-1 rounded-full border',
                   isActive
                     ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-700/40'
-                    : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200/60 dark:border-slate-700/40'
+                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200/60 dark:border-slate-700/40'
                 )}>
                   {isActive ? '● Activo' : 'Próximamente'}
                 </span>
@@ -91,7 +91,7 @@ export function ConnectionsPanel() {
 
               <div>
                 <h3 className="font-bold text-slate-900 dark:text-white">{conn.name}</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">{conn.subtitle}</p>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mb-2">{conn.subtitle}</p>
                 <p className="text-sm text-slate-600 dark:text-slate-300">{conn.desc}</p>
               </div>
 
