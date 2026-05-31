@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL || '',
-  import.meta.env.VITE_SUPABASE_ANON_KEY || ''
-);
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabase = SUPABASE_URL && SUPABASE_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_KEY)
+  : null;
 
 const TABLE = 'finanzas_personales_transacciones';
 
@@ -29,6 +30,11 @@ export function useFinanzas() {
   const [error, setError] = useState(null);
 
   const cargar = useCallback(async () => {
+    if (!supabase) {
+      setError('Supabase no configurado. Revisa VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.');
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     const { data, error: err } = await supabase
@@ -47,6 +53,7 @@ export function useFinanzas() {
   useEffect(() => { cargar(); }, [cargar]);
 
   const addTransaction = useCallback(async (tx) => {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' };
     setError(null);
     const monto = tx.Tipo === 'Gasto' ? -Math.abs(Number(tx.Monto)) : Math.abs(Number(tx.Monto));
     const { error: err } = await supabase.from(TABLE).insert([{
@@ -66,6 +73,7 @@ export function useFinanzas() {
   }, [cargar]);
 
   const updateTransaction = useCallback(async (id, patch) => {
+    if (!supabase) return;
     const mapped = {};
     if (patch.Fecha !== undefined) mapped.fecha = patch.Fecha;
     if (patch.Descripción !== undefined) mapped.descripcion = patch.Descripción;
@@ -81,12 +89,14 @@ export function useFinanzas() {
   }, [cargar]);
 
   const deleteTransaction = useCallback(async (id) => {
+    if (!supabase) return;
     const { error: err } = await supabase.from(TABLE).delete().eq('id', id);
     if (err) { setError(err.message); return; }
     await cargar();
   }, [cargar]);
 
   const importTransactions = useCallback(async (rows) => {
+    if (!supabase) return 0;
     const inserts = rows.map(r => ({
       fecha: r.Fecha || new Date().toISOString().split('T')[0],
       mes: r.Mes || '',
