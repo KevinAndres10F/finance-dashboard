@@ -1,179 +1,150 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
-const API_URL = "https://script.google.com/macros/s/AKfycbwvT2nZBMTsFi3do4b1rMzQstVxcQkJQNPZy7NGmdpxDUZG8QaUZmdpwHH6-m_NwROe/exec";
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL || '',
+  import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+);
 
-const LOCAL_TX_KEY = 'finance-local-transactions';
-const LOCAL_DELETED_KEY = 'finance-deleted-tx-keys';
-const LOCAL_OVERRIDES_KEY = 'finance-tx-overrides';
+const TABLE = 'finanzas_personales_transacciones';
 
-function loadLocal(k, fallback) {
-  try { return JSON.parse(localStorage.getItem(k)) || fallback; } catch { return fallback; }
-}
-function saveLocal(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
-
-function txStableKey(t, idx = 0) {
-  if (t.id) return String(t.id);
-  return `${t.Fecha || ''}|${t.Descripción || ''}|${t.Monto || 0}|${t.Categoría || ''}|${idx}`;
+function toFrontend(row) {
+  return {
+    id: row.id,
+    Fecha: row.fecha ?? '',
+    Mes: row.mes ?? '',
+    Descripción: row.descripcion ?? '',
+    Comercio: row.comercio ?? '',
+    Monto: Number(row.monto) || 0,
+    Categoría: row.categoria ?? 'Otros',
+    Cuenta: row.cuenta ?? 'Principal',
+    Tipo: row.tipo ?? 'Gasto',
+    origen: row.origen ?? '',
+  };
 }
 
 export function useFinanzas() {
-    const [remote, setRemote] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [localTxs, setLocalTxs] = useState(() => loadLocal(LOCAL_TX_KEY, []));
-    const [deletedKeys, setDeletedKeys] = useState(() => loadLocal(LOCAL_DELETED_KEY, []));
-    const [overrides, setOverrides] = useState(() => loadLocal(LOCAL_OVERRIDES_KEY, {}));
+  const [transacciones, setTransacciones] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-    const fetchTransactions = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const response = await fetch(API_URL);
-            if (!response.ok) throw new Error('Error fetching data');
-            const text = await response.text();
-            const rawData = JSON.parse(text);
-            const normalizedData = rawData.map(item => ({
-                ...item,
-                Categoría: item.Categoría || item.Categoria || 'Otros',
-                Descripción: item.Descripción || item.Descripcion || '',
-                Monto: Number(item.Monto) || 0,
-                Tipo: item.Tipo || 'Gasto',
-                Fecha: item.Fecha || '',
-                Cuenta: item.Cuenta || 'Principal'
-            }));
-            setRemote(normalizedData);
-        } catch (err) {
-            console.error("Error cargando datos:", err);
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+  const cargar = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const { data, error: err } = await supabase
+      .from(TABLE)
+      .select('*')
+      .order('fecha', { ascending: false });
+    if (err) {
+      setError(err.message);
+      setTransacciones([]);
+    } else {
+      setTransacciones((data ?? []).map(toFrontend));
+    }
+    setLoading(false);
+  }, []);
 
-    const addTransaction = async (transaction) => {
-        setError(null);
-        const finalTx = {
-            ...transaction,
-            Fecha: transaction.Fecha || new Date().toISOString().split('T')[0],
-        };
+  useEffect(() => { cargar(); }, [cargar]);
 
-        const payload = {
-            monto: finalTx.Monto,
-            tipo: finalTx.Tipo,
-            descripcion: finalTx.Descripción,
-            comercio: finalTx.Descripción,
-            categoria: finalTx.Categoría,
-            cuenta: finalTx.Cuenta,
-        };
+  const addTransaction = useCallback(async (tx) => {
+    setError(null);
+    const monto = tx.Tipo === 'Gasto' ? -Math.abs(Number(tx.Monto)) : Math.abs(Number(tx.Monto));
+    const { error: err } = await supabase.from(TABLE).insert([{
+      fecha: tx.Fecha || new Date().toISOString().split('T')[0],
+      mes: tx.Mes || new Date().toISOString().slice(0, 7),
+      descripcion: tx.Descripción || tx.Descripcion || '',
+      comercio: tx.Comercio || tx.Descripción || '',
+      monto,
+      categoria: tx.Categoría || tx.Categoria || 'Otros',
+      cuenta: tx.Cuenta || 'Principal',
+      tipo: tx.Tipo || 'Gasto',
+      origen: 'Web Manual',
+    }]);
+    if (err) { setError(err.message); return { success: false, error: err.message }; }
+    await cargar();
+    return { success: true };
+  }, [cargar]);
 
-        // Optimistic update local
-        const localId = 'local:' + (Date.now() + Math.random());
-        const optimistic = { ...finalTx, id: localId, _local: true };
-        const nextLocal = [...localTxs, optimistic];
-        setLocalTxs(nextLocal); saveLocal(LOCAL_TX_KEY, nextLocal);
+  const updateTransaction = useCallback(async (id, patch) => {
+    const mapped = {};
+    if (patch.Fecha !== undefined) mapped.fecha = patch.Fecha;
+    if (patch.Descripción !== undefined) mapped.descripcion = patch.Descripción;
+    if (patch.Monto !== undefined) mapped.monto = Number(patch.Monto);
+    if (patch.Categoría !== undefined) mapped.categoria = patch.Categoría;
+    if (patch.Cuenta !== undefined) mapped.cuenta = patch.Cuenta;
+    if (patch.Tipo !== undefined) mapped.tipo = patch.Tipo;
+    if (patch.Comercio !== undefined) mapped.comercio = patch.Comercio;
+    if (Object.keys(mapped).length === 0) return;
+    const { error: err } = await supabase.from(TABLE).update(mapped).eq('id', id);
+    if (err) { setError(err.message); return; }
+    await cargar();
+  }, [cargar]);
 
-        try {
-            await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify(payload),
-            });
-            return { success: true };
-        } catch (err) {
-            console.error("Error guardando:", err);
-            setError(err.message);
-            return { success: false, error: err.message };
-        }
-    };
+  const deleteTransaction = useCallback(async (id) => {
+    const { error: err } = await supabase.from(TABLE).delete().eq('id', id);
+    if (err) { setError(err.message); return; }
+    await cargar();
+  }, [cargar]);
 
-    const updateTransaction = (key, patch) => {
-        // Para tx remotas: guardar override por key
-        // Para tx locales: actualizar directamente la lista
-        if (String(key).startsWith('local:')) {
-            const next = localTxs.map(t => t.id === key ? { ...t, ...patch } : t);
-            setLocalTxs(next); saveLocal(LOCAL_TX_KEY, next);
-            return;
-        }
-        const nextOv = { ...overrides, [key]: { ...(overrides[key] || {}), ...patch } };
-        setOverrides(nextOv); saveLocal(LOCAL_OVERRIDES_KEY, nextOv);
-    };
+  const importTransactions = useCallback(async (rows) => {
+    const inserts = rows.map(r => ({
+      fecha: r.Fecha || new Date().toISOString().split('T')[0],
+      mes: r.Mes || '',
+      descripcion: r.Descripción || r.Descripcion || '',
+      comercio: r.Comercio || r.Descripción || '',
+      monto: r.Tipo === 'Gasto' ? -Math.abs(Number(r.Monto)) : Math.abs(Number(r.Monto)),
+      categoria: r.Categoría || r.Categoria || 'Otros',
+      cuenta: r.Cuenta || 'Principal',
+      tipo: r.Tipo || 'Gasto',
+      origen: 'Web Import',
+    }));
+    const { error: err } = await supabase.from(TABLE).insert(inserts);
+    if (err) { setError(err.message); return 0; }
+    await cargar();
+    return inserts.length;
+  }, [cargar]);
 
-    const deleteTransaction = (key) => {
-        if (String(key).startsWith('local:')) {
-            const next = localTxs.filter(t => t.id !== key);
-            setLocalTxs(next); saveLocal(LOCAL_TX_KEY, next);
-            return;
-        }
-        const next = [...new Set([...deletedKeys, key])];
-        setDeletedKeys(next); saveLocal(LOCAL_DELETED_KEY, next);
-    };
+  const transactions = transacciones;
 
-    const importTransactions = (rows) => {
-        const stamped = rows.map(r => ({
-            ...r,
-            id: 'local:' + (Date.now() + Math.random()),
-            _local: true,
-            _imported: true,
-        }));
-        const next = [...localTxs, ...stamped];
-        setLocalTxs(next); saveLocal(LOCAL_TX_KEY, next);
-        return stamped.length;
-    };
+  const stats = useMemo(() => {
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const currentMonthTxs = transactions.filter(t => t.Fecha?.startsWith(currentMonth));
 
-    useEffect(() => { fetchTransactions(); }, []);
+    const income = currentMonthTxs
+      .filter(t => t.Tipo === 'Ingreso' || t.Monto > 0)
+      .reduce((acc, curr) => acc + Math.abs(Number(curr.Monto)), 0);
+    const expenses = currentMonthTxs
+      .filter(t => t.Tipo === 'Gasto' || t.Monto < 0)
+      .reduce((acc, curr) => acc + Math.abs(Number(curr.Monto)), 0);
+    const balance = income - expenses;
 
-    /* ── Combinar remoto + local con overrides + deletes ── */
-    const transactions = useMemo(() => {
-        const out = [];
-        remote.forEach((t, idx) => {
-            const k = txStableKey(t, idx);
-            if (deletedKeys.includes(k)) return;
-            const ov = overrides[k];
-            out.push({ ...t, id: k, ...(ov || {}) });
-        });
-        for (const t of localTxs) out.push(t);
-        return out;
-    }, [remote, localTxs, deletedKeys, overrides]);
+    const expensesByCategory = currentMonthTxs
+      .filter(t => t.Tipo === 'Gasto' || t.Monto < 0)
+      .reduce((acc, curr) => {
+        const cat = curr.Categoría || 'Otros';
+        acc[cat] = (acc[cat] || 0) + Math.abs(Number(curr.Monto));
+        return acc;
+      }, {});
+    const chartData = Object.entries(expensesByCategory).map(([name, value]) => ({ name, value }));
+    return { income, expenses, balance, chartData };
+  }, [transactions]);
 
-    const stats = useMemo(() => {
-        const currentMonth = new Date().toISOString().slice(0, 7);
-        const currentMonthTxs = transactions.filter(t => t.Fecha?.startsWith(currentMonth));
+  const categories = useMemo(() => {
+    const defaults = ['Comida', 'Transporte', 'Entretenimiento', 'Salud', 'Servicios', 'Suscripción', 'Hogar', 'Educación', 'Salario', 'Inversión', 'Otros'];
+    const fromTxs = transactions.map(t => t.Categoría).filter(Boolean);
+    return [...new Set([...defaults, ...fromTxs])].sort();
+  }, [transactions]);
 
-        const income = currentMonthTxs
-            .filter(t => t.Tipo === 'Ingreso' || t.Monto > 0)
-            .reduce((acc, curr) => acc + Number(curr.Monto), 0);
-        const expenses = currentMonthTxs
-            .filter(t => t.Tipo === 'Gasto' || t.Monto < 0)
-            .reduce((acc, curr) => acc + Math.abs(Number(curr.Monto)), 0);
-        const balance = income - expenses;
-
-        const expensesByCategory = currentMonthTxs
-            .filter(t => t.Tipo === 'Gasto' || t.Monto < 0)
-            .reduce((acc, curr) => {
-                const cat = curr.Categoría || 'Otros';
-                acc[cat] = (acc[cat] || 0) + Math.abs(Number(curr.Monto));
-                return acc;
-            }, {});
-        const chartData = Object.entries(expensesByCategory).map(([name, value]) => ({ name, value }));
-        return { income, expenses, balance, chartData };
-    }, [transactions]);
-
-    const categories = useMemo(() => {
-        const defaults = ['Comida', 'Transporte', 'Entretenimiento', 'Salud', 'Servicios', 'Suscripción', 'Hogar', 'Educación', 'Salario', 'Inversión', 'Otros'];
-        const fromTxs = transactions.map(t => t.Categoría).filter(Boolean);
-        return [...new Set([...defaults, ...fromTxs])].sort();
-    }, [transactions]);
-
-    return {
-        transactions,
-        loading,
-        error,
-        addTransaction,
-        updateTransaction,
-        deleteTransaction,
-        importTransactions,
-        stats,
-        categories,
-        refresh: fetchTransactions
-    };
+  return {
+    transactions,
+    loading,
+    error,
+    addTransaction,
+    updateTransaction,
+    deleteTransaction,
+    importTransactions,
+    stats,
+    categories,
+    refresh: cargar,
+  };
 }
