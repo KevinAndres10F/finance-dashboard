@@ -12,7 +12,7 @@ const TABLE = 'finanzas_personales_transacciones';
 function toFrontend(row) {
   return {
     id: row.id,
-    Fecha: row.fecha ?? '',
+    Fecha: row.fecha ? row.fecha.slice(0, 10) : '',
     Mes: row.mes ?? '',
     Descripción: row.descripcion ?? '',
     Comercio: row.comercio ?? '',
