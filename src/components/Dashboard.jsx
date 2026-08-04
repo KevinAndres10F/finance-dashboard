@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Card } from './ui/Card';
-import { cn, fmtMoney } from '../lib/utils';
+import { cn, fmtMoney, mesLocal } from '../lib/utils';
 import { useSettings } from '../hooks/useSettings';
 import { useAccounts } from '../hooks/useAccounts';
 import { useDebts } from '../hooks/useDebts';
@@ -163,14 +163,14 @@ export function Dashboard({ transactions, stats, budgetData }) {
   const C = settings.currency;
   const metrics = useMemo(() => {
     const now = new Date();
-    const currentMonth  = now.toISOString().slice(0, 7);
+    const currentMonth  = mesLocal(now);
     const dayOfMonth    = now.getDate();
     const daysInMonth   = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const daysLeft      = daysInMonth - dayOfMonth;
 
     /* Mes anterior */
     const prevDate  = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const prevMonth = prevDate.toISOString().slice(0, 7);
+    const prevMonth = mesLocal(prevDate);
 
     const monthTxs = transactions.filter(t => t.Fecha?.startsWith(currentMonth));
     const prevTxs  = transactions.filter(t => t.Fecha?.startsWith(prevMonth));
@@ -270,7 +270,8 @@ export function Dashboard({ transactions, stats, budgetData }) {
   }, [transactions, stats, budgetData]);
 
   const fmt = (n) => fmtMoney(n, C);
-  const upcomingTotal = subs.upcomingBills.slice(0, 5).reduce((s, b) => s + Number(b.amount || 0), 0);
+  const upcomingCount = subs.upcomingBills.length;
+  const upcomingNext = subs.upcomingBills.slice(0, 5);
   const netWorth = accountTotals.netWorth - debtTotals.totalBalance;
 
   return (
@@ -317,9 +318,9 @@ export function Dashboard({ transactions, stats, budgetData }) {
               <Repeat className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{fmt(upcomingTotal)}</p>
+          <p className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{fmt(subs.monthlyTotal)}<span className="text-sm font-normal text-slate-400">/mes</span></p>
           <p className="text-xs text-slate-400 mt-2">
-            {subs.upcomingBills.length} suscripciones · {fmt(subs.monthlyTotal)}/mes
+            {subs.all.length} suscripciones · {upcomingCount} próximos cobros
           </p>
         </Card>
       </div>

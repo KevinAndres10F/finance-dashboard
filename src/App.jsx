@@ -34,7 +34,7 @@ function App() {
   const auth = useDeviceAuth();
   const {
     transactions, loading, error, addTransaction, updateTransaction,
-    deleteTransaction, importTransactions, stats, categories
+    deleteTransaction, importTransactions, stats, categories, reviewCount
   } = useFinanzas();
   const { budgetData, budgetsInWarning, budgetsExceeded } = useBudgets(transactions);
   const gamification = useGamification(transactions, budgetData);
@@ -192,6 +192,7 @@ function App() {
                 categories={categories}
                 updateTransaction={updateTransaction}
                 deleteTransaction={deleteTransaction}
+                reviewCount={reviewCount}
               />
             )}
             {activeTab === 'statistics' && <Statistics transactions={transactions} budgetData={budgetData} />}

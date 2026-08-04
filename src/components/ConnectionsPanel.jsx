@@ -1,56 +1,223 @@
+import { useState, useEffect } from 'react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
-import { cn } from '../lib/utils';
-import { Link2, TrendingUp, Bitcoin, Building2, ArrowRight, Lock, Sparkles } from 'lucide-react';
-
-const CONNECTIONS = [
-  {
-    id: 'plaid',
-    name: 'Plaid',
-    subtitle: 'Banca tradicional',
-    desc: 'Conecta tu cuenta bancaria y tarjetas de crédito. Importa transacciones automáticamente.',
-    icon: Building2,
-    color: 'blue',
-    status: 'coming_soon',
-    features: ['Importación automática', 'Balance en tiempo real', 'Historial de 12 meses'],
-  },
-  {
-    id: 'snaptrade',
-    name: 'SnapTrade',
-    subtitle: 'Inversiones y criptoactivos',
-    desc: 'Sincroniza tu portafolio de acciones, ETFs y criptomonedas en tiempo real.',
-    icon: Bitcoin,
-    color: 'emerald',
-    status: 'coming_soon',
-    features: ['Portafolio unificado', 'P&L en tiempo real', 'Crypto + stocks'],
-  },
-  {
-    id: 'sheets',
-    name: 'Google Sheets',
-    subtitle: 'Backend actual',
-    desc: 'Tu fuente de datos principal. Todas las transacciones se guardan en tu hoja de cálculo.',
-    icon: TrendingUp,
-    color: 'amber',
-    status: 'active',
-    features: ['Activo', 'Datos en tiempo real', 'Sin límites'],
-  },
-];
-
-const colorMap = {
-  blue:    { bg: 'bg-blue-50/80 dark:bg-blue-900/20',    icon: 'text-blue-600 dark:text-blue-400',    border: 'border-blue-200/60 dark:border-blue-800/40' },
-  emerald: { bg: 'bg-emerald-50/80 dark:bg-emerald-900/20', icon: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-200/60 dark:border-emerald-800/40' },
-  amber:   { bg: 'bg-amber-50/80 dark:bg-amber-900/20',   icon: 'text-amber-600 dark:text-amber-400',   border: 'border-amber-200/60 dark:border-amber-800/40' },
-};
+import { cn, fmtDate } from '../lib/utils';
+import { supabase, isAuthError } from '../lib/supabase';
+import {
+  Link2, Database, Mail, Clock, CheckCircle2, AlertTriangle, XCircle,
+  ArrowRight, RefreshCw, Sparkles, Activity
+} from 'lucide-react';
 
 export function ConnectionsPanel() {
+  const [health, setHealth] = useState({ loading: true, error: null, denied: false, runs: [], emails: null });
+
+  useEffect(() => {
+    if (!supabase) {
+      setHealth({ loading: false, error: 'Supabase no configurado', denied: false, runs: [], emails: null });
+      return;
+    }
+    loadHealth();
+  }, []);
+
+  async function loadHealth() {
+    setHealth(h => ({ ...h, loading: true, error: null, denied: false }));
+
+    const { data: runs, error: runErr } = await supabase
+      .from('finanzas_personales_ejecuciones')
+      .select('*')
+      .order('inicio', { ascending: false })
+      .limit(10);
+
+    if (runErr && isAuthError(runErr)) {
+      setHealth({ loading: false, error: null, denied: true, runs: [], emails: null });
+      return;
+    }
+
+    let emails = null;
+    const { data: emailData, error: emailErr } = await supabase
+      .from('finanzas_personales_email_log')
+      .select('estado')
+      .limit(500);
+
+    if (!emailErr && emailData) {
+      const counts = emailData.reduce((acc, e) => {
+        acc[e.estado] = (acc[e.estado] || 0) + 1;
+        return acc;
+      }, {});
+      emails = { total: emailData.length, ...counts };
+    }
+
+    setHealth({
+      loading: false,
+      error: runErr ? runErr.message : null,
+      denied: false,
+      runs: runs || [],
+      emails,
+    });
+  }
+
+  const lastRun = health.runs[0];
+  const lastRunTime = lastRun?.inicio ? new Date(lastRun.inicio) : null;
+  const hoursSinceRun = lastRunTime ? (Date.now() - lastRunTime.getTime()) / 3600000 : null;
+  const isStale = hoursSinceRun !== null && hoursSinceRun > 2;
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Conexiones</h2>
         <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
-          Integra tus cuentas financieras en un solo lugar
+          Estado de la integración y el pipeline de datos
         </p>
       </div>
+
+      {/* Supabase connection card */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="p-6 flex flex-col gap-4">
+          <div className="flex items-start justify-between">
+            <div className="p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-900/20">
+              <Database className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full border bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-700/40">
+              Activo
+            </span>
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-900 dark:text-white">Supabase</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-300 mb-2">Base de datos PostgreSQL</p>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Almacena transacciones, cuentas y configuración. Conectado via PostgREST API.
+            </p>
+          </div>
+          <ul className="space-y-1.5">
+            {['Transacciones en tiempo real', 'RLS habilitado', 'Filtro activo=true'].map(f => (
+              <li key={f} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                {f}
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        <Card className="p-6 flex flex-col gap-4">
+          <div className="flex items-start justify-between">
+            <div className="p-3 rounded-xl bg-blue-50/80 dark:bg-blue-900/20">
+              <Mail className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full border bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200/60 dark:border-blue-700/40">
+              Automatizado
+            </span>
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-900 dark:text-white">Gmail → Apps Script</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-300 mb-2">Pipeline de emails bancarios</p>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Lee notificaciones bancarias de Gmail, extrae datos y los inserta en Supabase automáticamente.
+            </p>
+          </div>
+          <ul className="space-y-1.5">
+            {['Trigger cada hora', 'Parser multi-banco', 'Detección de duplicados'].map(f => (
+              <li key={f} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                {f}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      </div>
+
+      {/* Pipeline health panel */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Activity className="w-5 h-5 text-slate-500" />
+            <h3 className="text-base font-semibold text-slate-800 dark:text-white">Salud del Pipeline</h3>
+          </div>
+          <Button variant="outline" size="sm" onClick={loadHealth} disabled={health.loading} className="gap-1.5">
+            <RefreshCw className={cn("w-3.5 h-3.5", health.loading && "animate-spin")} />
+            Actualizar
+          </Button>
+        </div>
+
+        {health.denied ? (
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/30">
+            <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+            <p className="text-sm text-amber-700 dark:text-amber-400">
+              Sin permisos de lectura de logs. Aplica las políticas RLS para ver el estado del pipeline.
+            </p>
+          </div>
+        ) : health.error ? (
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-rose-50/80 dark:bg-rose-900/20 border border-rose-200/60 dark:border-rose-700/30">
+            <XCircle className="w-5 h-5 text-rose-500 shrink-0" />
+            <p className="text-sm text-rose-700 dark:text-rose-400">{health.error}</p>
+          </div>
+        ) : health.loading ? (
+          <p className="text-sm text-slate-500 py-4 text-center">Cargando...</p>
+        ) : (
+          <div className="space-y-4">
+            {/* Last run status */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/50">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Última ejecución</p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                  {lastRunTime ? fmtDate(lastRunTime) : 'Sin datos'}
+                </p>
+                {isStale && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    Hace más de 2 horas
+                  </p>
+                )}
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/50">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Estado</p>
+                <p className={cn("text-sm font-semibold", lastRun?.estado === 'ok' ? 'text-emerald-600' : lastRun?.estado === 'error' ? 'text-rose-600' : 'text-slate-600')}>
+                  {lastRun?.estado === 'ok' ? 'OK' : lastRun?.estado || 'Sin datos'}
+                </p>
+                {lastRun?.nuevas_tx != null && (
+                  <p className="text-xs text-slate-500 mt-1">{lastRun.nuevas_tx} transacciones nuevas</p>
+                )}
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/50">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Emails procesados</p>
+                {health.emails ? (
+                  <>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">{health.emails.total} total</p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {health.emails.procesado || 0} ok · {health.emails.error || 0} error · {health.emails.ignorado || 0} ignorados
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-slate-500">Sin datos de email</p>
+                )}
+              </div>
+            </div>
+
+            {/* Recent runs */}
+            {health.runs.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Últimas ejecuciones</p>
+                <div className="space-y-1">
+                  {health.runs.slice(0, 5).map((run, i) => (
+                    <div key={run.id || i} className="flex items-center justify-between py-1.5 px-2 rounded-lg text-xs hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                      <div className="flex items-center gap-2">
+                        {run.estado === 'ok'
+                          ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                          : <XCircle className="w-3.5 h-3.5 text-rose-500" />}
+                        <span className="text-slate-700 dark:text-slate-300">{fmtDate(run.inicio)}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-slate-500">
+                        {run.nuevas_tx != null && <span>+{run.nuevas_tx} tx</span>}
+                        {run.emails_procesados != null && <span>{run.emails_procesados} emails</span>}
+                        {run.duracion_seg != null && <span>{run.duracion_seg}s</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
 
       {/* Roadmap banner */}
       <Card className="p-4">
@@ -61,65 +228,11 @@ export function ConnectionsPanel() {
           <div>
             <p className="text-sm font-semibold text-slate-900 dark:text-white">Próximamente</p>
             <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
-              Las integraciones con Plaid y SnapTrade requieren un backend seguro para gestionar
-              tokens OAuth. Estarán disponibles en la próxima iteración.
+              Integraciones con Plaid y SnapTrade para importación automática de banca y portafolio de inversiones.
             </p>
           </div>
         </div>
       </Card>
-
-      {/* Connection cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {CONNECTIONS.map(conn => {
-          const c = colorMap[conn.color];
-          const isActive = conn.status === 'active';
-          return (
-            <Card key={conn.id} className="p-6 flex flex-col gap-4">
-              <div className="flex items-start justify-between">
-                <div className={cn('p-3 rounded-xl', c.bg)}>
-                  <conn.icon className={cn('w-6 h-6', c.icon)} />
-                </div>
-                <span className={cn(
-                  'text-xs font-semibold px-2.5 py-1 rounded-full border',
-                  isActive
-                    ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-700/40'
-                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200/60 dark:border-slate-700/40'
-                )}>
-                  {isActive ? '● Activo' : 'Próximamente'}
-                </span>
-              </div>
-
-              <div>
-                <h3 className="font-bold text-slate-900 dark:text-white">{conn.name}</h3>
-                <p className="text-xs text-slate-600 dark:text-slate-300 mb-2">{conn.subtitle}</p>
-                <p className="text-sm text-slate-600 dark:text-slate-300">{conn.desc}</p>
-              </div>
-
-              <ul className="space-y-1.5">
-                {conn.features.map(f => (
-                  <li key={f} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                    <div className={cn('w-1.5 h-1.5 rounded-full', c.icon.replace('text-', 'bg-'))} />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-
-              <Button
-                variant={isActive ? 'secondary' : 'outline'}
-                size="sm"
-                className="w-full gap-2 mt-auto"
-                disabled={!isActive}
-              >
-                {isActive ? (
-                  <>Ver datos <ArrowRight className="w-3.5 h-3.5" /></>
-                ) : (
-                  <><Lock className="w-3.5 h-3.5" /> Requiere backend</>
-                )}
-              </Button>
-            </Card>
-          );
-        })}
-      </div>
     </div>
   );
 }

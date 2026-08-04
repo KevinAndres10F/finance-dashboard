@@ -1,6 +1,6 @@
 # Personal Finance Dashboard
 
-Un dashboard moderno de finanzas personales construido con React, Vite y Tailwind CSS, que utiliza Google Sheets como backend gratuito y flexible.
+Un dashboard moderno de finanzas personales construido con React, Vite y Tailwind CSS, con Supabase (PostgreSQL) como backend.
 
 ## ✨ Características
 
@@ -33,7 +33,7 @@ Un dashboard moderno de finanzas personales construido con React, Vite y Tailwin
 -   **Diseño Responsivo:** Perfecto en móviles, tablets y desktop
 -   **Animaciones Fluidas:** Transiciones suaves con Framer Motion
 -   **Navegación por Tabs:** 4 secciones principales (Resumen, Transacciones, Estadísticas, Presupuestos)
--   **Backend en Google Sheets:** Integración directa para persistencia gratuita
+-   **Backend en Supabase:** PostgreSQL con RLS y API REST automática
 
 ## 🚀 Inicio Rápido
 
@@ -80,7 +80,6 @@ vercel
 
 ## 📚 Documentación
 
--   [Guía de Integración con Google Sheets](./docs/GOOGLE_SHEETS_INTEGRATION.md): Configuración del backend
 -   [Mejoras Implementadas](./MEJORAS.md): Lista completa de funcionalidades nuevas
 -   [Guía de Deploy](./DEPLOY.md): Instrucciones paso a paso para publicar tu app
 
@@ -92,7 +91,7 @@ vercel
 -   **Recharts** - Gráficos interactivos
 -   **Framer Motion** - Animaciones fluidas
 -   **Lucide React** - Iconos modernos
--   **Google Sheets** - Backend gratuito
+-   **Supabase** - Backend PostgreSQL con RLS
 
 ## 📱 Capturas de Pantalla
 

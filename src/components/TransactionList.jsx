@@ -4,7 +4,7 @@ import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import {
   TrendingDown, TrendingUp, Search, Filter, Download, X, ChevronLeft, ChevronRight,
-  Edit2, Tag as TagIcon, CheckCircle2, StickyNote
+  Edit2, Tag as TagIcon, CheckCircle2, StickyNote, AlertCircle
 } from 'lucide-react';
 import { cn, fmtMoney } from '../lib/utils';
 import { useSettings } from '../hooks/useSettings';
@@ -18,7 +18,7 @@ const MONTHS = [
 
 const selectCls = "h-9 px-3 rounded-xl text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-400/50 bg-white/85 dark:bg-slate-800/75 backdrop-blur-sm border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-200";
 
-export function TransactionList({ transactions, categories, updateTransaction, deleteTransaction }) {
+export function TransactionList({ transactions, categories, updateTransaction, deleteTransaction, reviewCount = 0 }) {
   const { settings } = useSettings();
   const txMeta = useTransactionMeta();
   const now = new Date();
@@ -29,9 +29,10 @@ export function TransactionList({ transactions, categories, updateTransaction, d
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterType,     setFilterType]     = useState('all');
   const [filterTag,      setFilterTag]      = useState('all');
-  const [filterReviewed, setFilterReviewed] = useState('all');
-  const [showFilters,    setShowFilters]    = useState(false);
-  const [editing,        setEditing]        = useState(null); // { tx, idx }
+  const [filterReviewed,  setFilterReviewed]  = useState('all');
+  const [filterRevision,  setFilterRevision]  = useState('all');
+  const [showFilters,     setShowFilters]     = useState(false);
+  const [editing,         setEditing]         = useState(null);
 
   const availableYears = useMemo(() => {
     const years = [...new Set(transactions.map(t => t.Fecha?.slice(0, 4)).filter(Boolean))]
@@ -77,10 +78,12 @@ export function TransactionList({ transactions, categories, updateTransaction, d
         if (filterTag !== 'all' && !meta.tags?.includes(filterTag)) return false;
         if (filterReviewed === 'yes' && !meta.reviewed) return false;
         if (filterReviewed === 'no'  &&  meta.reviewed) return false;
+        if (filterRevision === 'yes' && !t.necesita_revision) return false;
+        if (filterRevision === 'no'  &&  t.necesita_revision) return false;
         return true;
       })
       .sort((a, b) => (b.t.Fecha || '').localeCompare(a.t.Fecha || ''));
-  }, [indexed, filterYear, filterMonth, searchTerm, filterCategory, filterType, filterTag, filterReviewed]);
+  }, [indexed, filterYear, filterMonth, searchTerm, filterCategory, filterType, filterTag, filterReviewed, filterRevision]);
 
   const periodSummary = useMemo(() => {
     const income   = filtered.filter(({ t }) => t.Tipo === 'Ingreso' || t.Monto > 0)
@@ -116,11 +119,11 @@ export function TransactionList({ transactions, categories, updateTransaction, d
 
   const clearFilters = () => {
     setSearchTerm(''); setFilterCategory('all'); setFilterType('all');
-    setFilterTag('all'); setFilterReviewed('all');
+    setFilterTag('all'); setFilterReviewed('all'); setFilterRevision('all');
   };
 
   const hasSecondary = searchTerm || filterCategory !== 'all' || filterType !== 'all'
-    || filterTag !== 'all' || filterReviewed !== 'all';
+    || filterTag !== 'all' || filterReviewed !== 'all' || filterRevision !== 'all';
   const periodLabel = filterMonth !== 'all'
     ? `${MONTHS[parseInt(filterMonth, 10) - 1]} ${filterYear}`
     : filterYear === 'all' ? 'Todos los períodos' : `Año ${filterYear}`;
@@ -150,6 +153,15 @@ export function TransactionList({ transactions, categories, updateTransaction, d
             </button>
             <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1 hidden sm:inline">{periodLabel}</span>
             <div className="flex items-center gap-2 ml-auto">
+              {reviewCount > 0 && (
+                <Button variant={filterRevision === 'yes' ? 'secondary' : 'outline'} size="sm"
+                  onClick={() => setFilterRevision(filterRevision === 'yes' ? 'all' : 'yes')}
+                  className="gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="hidden sm:inline">Por revisar</span>
+                  <span className="text-xs font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-full">{reviewCount}</span>
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}
                 className={cn('gap-1.5', showFilters && 'bg-slate-100/80 dark:bg-slate-700/60')}>
                 <Filter className="w-3.5 h-3.5" />
@@ -273,6 +285,7 @@ function TransactionItem({ transaction, meta, currency, onClick }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <p className="font-medium text-slate-900 dark:text-white truncate">{transaction.Descripción || '—'}</p>
+            {transaction.necesita_revision && <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" title={transaction.revision_motivo || 'Por revisar'} />}
             {meta.reviewed && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" title="Revisada" />}
             {meta.notes && <StickyNote className="w-3.5 h-3.5 text-amber-500 shrink-0" title="Tiene notas" />}
           </div>
@@ -281,6 +294,9 @@ function TransactionItem({ transaction, meta, currency, onClick }) {
             <span>·</span>
             <span className="shrink-0">{transaction.Fecha}</span>
             {transaction.Cuenta && <><span>·</span><span className="shrink-0">{transaction.Cuenta}</span></>}
+            {transaction.necesita_revision && transaction.revision_motivo && (
+              <><span>·</span><span className="text-amber-600 dark:text-amber-400 truncate">{transaction.revision_motivo}</span></>
+            )}
             {meta.tags?.length > 0 && (
               <>
                 <span>·</span>

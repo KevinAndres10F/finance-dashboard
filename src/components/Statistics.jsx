@@ -5,7 +5,7 @@ import {
   Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
 import { TrendingUp, TrendingDown, Target, Calendar, PiggyBank, AlertCircle, Rocket } from 'lucide-react';
-import { cn, fmtMoney } from '../lib/utils';
+import { cn, fmtMoney, mesLocal } from '../lib/utils';
 import { useSettings } from '../hooks/useSettings';
 import { SankeyFlow } from './SankeyFlow';
 
@@ -15,15 +15,14 @@ export function Statistics({ transactions, budgetData = [] }) {
   const { settings } = useSettings();
   const C = settings.currency;
   const stats = useMemo(() => {
-    // Agrupar por mes
     const monthlyData = transactions.reduce((acc, t) => {
-      const date = new Date(t.Fecha);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const monthKey = t.Fecha?.slice(0, 7);
       
+      if (!monthKey) return acc;
       if (!acc[monthKey]) {
         acc[monthKey] = { month: monthKey, income: 0, expenses: 0 };
       }
-      
+
       const amount = Math.abs(Number(t.Monto));
       if (t.Tipo === 'Ingreso' || t.Monto > 0) {
         acc[monthKey].income += amount;
@@ -62,9 +61,8 @@ export function Statistics({ transactions, budgetData = [] }) {
       }));
 
     // Comparativa mes actual vs anterior
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    const lastMonth = new Date(new Date().setMonth(new Date().getMonth() - 1))
-      .toISOString().slice(0, 7);
+    const currentMonth = mesLocal(new Date());
+    const lastMonth = mesLocal(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1));
 
     const currentMonthData = transactions.filter(t => t.Fecha?.startsWith(currentMonth));
     const lastMonthData = transactions.filter(t => t.Fecha?.startsWith(lastMonth));

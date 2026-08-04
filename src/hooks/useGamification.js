@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { fechaLocal, mesLocal } from '../lib/utils';
 
 const STORAGE_KEY = 'finance-gamification';
 
@@ -89,11 +90,11 @@ export function useGamification(transactions, budgetData) {
   // ── Streak tracking: update when transactions change ──────────────────
   useEffect(() => {
     if (!transactions.length) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = fechaLocal(new Date());
     setState(prev => {
       const { lastDate, current, longest } = prev.streaks;
-      if (lastDate === today) return prev; // already counted today
-      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      if (lastDate === today) return prev;
+      const yesterday = fechaLocal(new Date(Date.now() - 86400000));
       const newCurrent = lastDate === yesterday ? current + 1 : 1;
       const newLongest = Math.max(newCurrent, longest);
       return { ...prev, streaks: { lastDate: today, current: newCurrent, longest: newLongest } };
@@ -118,7 +119,7 @@ export function useGamification(transactions, budgetData) {
       if (transactions.length >= 1) award('first_transaction');
 
       // Savings badges (current month)
-      const currentMonth = new Date().toISOString().slice(0, 7);
+      const currentMonth = mesLocal(new Date());
       const monthTxs = transactions.filter(t => t.Fecha?.startsWith(currentMonth));
       const income = monthTxs.filter(t => t.Tipo === 'Ingreso' || t.Monto > 0).reduce((a, t) => a + Math.abs(Number(t.Monto)), 0);
       const expenses = monthTxs.filter(t => t.Tipo === 'Gasto' || t.Monto < 0).reduce((a, t) => a + Math.abs(Number(t.Monto)), 0);

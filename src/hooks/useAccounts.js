@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { fechaLocal } from '../lib/utils';
 
 const KEY = 'finance-accounts';
 const HISTORY_KEY = 'finance-networth-history';
@@ -72,7 +73,7 @@ export function useAccounts() {
   // Snapshot histórico mensual del net worth
   useEffect(() => {
     if (accounts.length === 0) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = fechaLocal(new Date());
     const month = today.slice(0, 7);
     const last = history[history.length - 1];
     if (last?.month === month) {

@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { fechaLocal } from '../lib/utils';
 
 const KEY = 'finance-subscriptions';
 const IGNORED_KEY = 'finance-subscriptions-ignored';
@@ -32,7 +33,7 @@ export function useSubscriptions(transactions = []) {
     for (const [desc, occs] of Object.entries(groups)) {
       if (occs.length < 2) continue;
       // months únicos
-      const months = new Set(occs.map(o => o.date?.slice(0, 7)).filter(Boolean));
+      const months = new Set(occs.map(o => o.date?.slice(0, 7) || '').filter(Boolean));
       if (months.size < 2) continue;
       // monto medio + variación
       const avg = occs.reduce((s, o) => s + o.amount, 0) / occs.length;

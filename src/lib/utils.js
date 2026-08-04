@@ -37,6 +37,18 @@ export function txKey(t, idx = 0) {
   return `${t.Fecha || ''}|${t.Descripción || ''}|${t.Monto || 0}|${t.Categoría || ''}|${idx}`;
 }
 
+/* ─── Timezone-correct date helpers (America/Guayaquil = UTC-5) ── */
+const _dtf = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Guayaquil', year: 'numeric', month: '2-digit', day: '2-digit' });
+
+export function fechaLocal(ts) {
+  if (!ts) return '';
+  return _dtf.format(typeof ts === 'string' ? new Date(ts) : ts);
+}
+
+export function mesLocal(ts) {
+  return fechaLocal(ts).slice(0, 7);
+}
+
 /* ─── Date utilities ───────────────────────────────────────────── */
 export function daysBetween(a, b) {
   const ms = new Date(b).getTime() - new Date(a).getTime();
