@@ -31,6 +31,23 @@ export function fmtMoney(value, currency = 'USD', { sign = false, decimals = 2 }
   return `${prefix}${cfg.symbol}${formatted}`;
 }
 
+/* ─── Transfer detection from revision_motivo ─────────────────── */
+const TRANSFER_PATTERNS = [
+  'probable traspaso entre cuentas propias',
+  'probable pago de tarjeta o traspaso',
+];
+
+export function isTransferTx(tx) {
+  if (!tx.revision_motivo) return false;
+  const motivo = tx.revision_motivo.toLowerCase();
+  return TRANSFER_PATTERNS.some(p => motivo.includes(p));
+}
+
+export function parseMotivos(motivo) {
+  if (!motivo) return [];
+  return motivo.split(';').map(s => s.trim()).filter(Boolean);
+}
+
 /* ─── Stable transaction id ────────────────────────────────────── */
 export function txKey(t, idx = 0) {
   if (t.id) return String(t.id);

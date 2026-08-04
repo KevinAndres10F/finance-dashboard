@@ -6,7 +6,7 @@ import {
   TrendingDown, TrendingUp, Search, Filter, Download, X, ChevronLeft, ChevronRight,
   Edit2, Tag as TagIcon, CheckCircle2, StickyNote, AlertCircle
 } from 'lucide-react';
-import { cn, fmtMoney } from '../lib/utils';
+import { cn, fmtMoney, parseMotivos } from '../lib/utils';
 import { useSettings } from '../hooks/useSettings';
 import { useTransactionMeta } from '../hooks/useTransactionMeta';
 import { TransactionEditModal } from './TransactionEditModal';
@@ -295,7 +295,16 @@ function TransactionItem({ transaction, meta, currency, onClick }) {
             <span className="shrink-0">{transaction.Fecha}</span>
             {transaction.Cuenta && <><span>·</span><span className="shrink-0">{transaction.Cuenta}</span></>}
             {transaction.necesita_revision && transaction.revision_motivo && (
-              <><span>·</span><span className="text-amber-600 dark:text-amber-400 truncate">{transaction.revision_motivo}</span></>
+              <>
+                <span>·</span>
+                <span className="flex gap-1 flex-wrap">
+                  {parseMotivos(transaction.revision_motivo).map((m, i) => (
+                    <span key={i} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-50/80 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 whitespace-nowrap">
+                      <AlertCircle className="w-2.5 h-2.5" />{m}
+                    </span>
+                  ))}
+                </span>
+              </>
             )}
             {meta.tags?.length > 0 && (
               <>

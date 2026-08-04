@@ -105,7 +105,7 @@ export function useFinanzas() {
 
   const deleteTransaction = useCallback(async (id) => {
     if (!supabase) return;
-    const { error: err } = await supabase.from(TABLE).delete().eq('id', id);
+    const { error: err } = await supabase.from(TABLE).update({ activo: false }).eq('id', id);
     if (err) { setError(err.message); return; }
     await cargar();
   }, [cargar]);
