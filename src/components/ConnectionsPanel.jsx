@@ -50,6 +50,13 @@ export function ConnectionsPanel() {
       });
     }
 
+    const noRuns = !runErr && (!runs || runs.length === 0);
+    const noEmails = !emails || emails.total === 0;
+    if (noRuns && noEmails) {
+      setHealth({ loading: false, error: null, denied: true, runs: [], emails: null });
+      return;
+    }
+
     setHealth({
       loading: false,
       error: runErr ? runErr.message : null,
@@ -118,7 +125,7 @@ export function ConnectionsPanel() {
             </p>
           </div>
           <ul className="space-y-1.5">
-            {['Trigger cada hora', 'Parser multi-banco', 'Detección de duplicados'].map(f => (
+            {['Trigger cada 15 minutos', 'Parser multi-banco', 'Detección de duplicados'].map(f => (
               <li key={f} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                 {f}
@@ -145,7 +152,7 @@ export function ConnectionsPanel() {
           <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/30">
             <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
             <p className="text-sm text-amber-700 dark:text-amber-400">
-              Sin permisos de lectura de logs. Aplica las políticas RLS para ver el estado del pipeline.
+              Sin acceso a las tablas de auditoría — requiere Supabase Auth para ver el estado del pipeline.
             </p>
           </div>
         ) : health.error ? (
