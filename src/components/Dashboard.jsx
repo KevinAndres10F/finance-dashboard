@@ -154,7 +154,7 @@ function BudgetStatusBadge({ budget }) {
 /* ════════════════════════════════════════════════════════════════
    DASHBOARD PRINCIPAL
 ════════════════════════════════════════════════════════════════ */
-export function Dashboard({ transactions, stats, budgetData }) {
+export function Dashboard({ transactions, stats, budgetData, categoryColorMap = {} }) {
   const { settings } = useSettings();
   const { accounts, totals: accountTotals } = useAccounts(transactions);
   const { totals: debtTotals } = useDebts();
@@ -202,7 +202,7 @@ export function Dashboard({ transactions, stats, budgetData }) {
       .filter(t => t.Tipo === 'Gasto' || t.Monto < 0)
       .reduce((a, t) => { const c = t.Categoría || 'Otros'; a[c] = (a[c] || 0) + Math.abs(Number(t.Monto)); return a; }, {});
     const topCategories = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 7)
-      .map(([name, value], i) => ({ name, value, color: PALETTE[i % PALETTE.length] }));
+      .map(([name, value], i) => ({ name, value, color: categoryColorMap[name] || PALETTE[i % PALETTE.length] }));
 
     /* Balance por cuenta — usa accounts de useAccounts (saldo_inicial + movimientos) */
 

@@ -29,6 +29,20 @@ CREATE POLICY "anon_select_cuentas"
   ON finanzas_personales_cuentas FOR SELECT
   TO anon USING (true);
 
+-- ── finanzas_personales_categorias ──────────────────────────
+-- Necesaria para colores de categoría en gráficos y filtros.
+-- SOLO LECTURA.
+CREATE POLICY "anon_select_categorias"
+  ON finanzas_personales_categorias FOR SELECT
+  TO anon USING (true);
+
+-- ── finanzas_personales_reglas_categoria ────────────────────
+-- Necesaria para mostrar reglas globales en Settings y auto-categorización.
+-- SOLO LECTURA.
+CREATE POLICY "anon_select_reglas_categoria"
+  ON finanzas_personales_reglas_categoria FOR SELECT
+  TO anon USING (true);
+
 -- ── finanzas_personales_ejecuciones ─────────────────────────
 -- Necesaria para el panel de salud del pipeline.
 -- SOLO LECTURA. La escribe Apps Script con service_role.

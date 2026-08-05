@@ -103,6 +103,32 @@ CREATE POLICY "auth_update_ajustes"
   ON finanzas_personales_ajustes FOR UPDATE
   TO authenticated USING (true) WITH CHECK (true);
 
+-- ── finanzas_personales_categorias ──────────────────────────
+CREATE POLICY "auth_select_categorias"
+  ON finanzas_personales_categorias FOR SELECT
+  TO authenticated USING (true);
+
+CREATE POLICY "auth_insert_categorias"
+  ON finanzas_personales_categorias FOR INSERT
+  TO authenticated WITH CHECK (true);
+
+CREATE POLICY "auth_update_categorias"
+  ON finanzas_personales_categorias FOR UPDATE
+  TO authenticated USING (true) WITH CHECK (true);
+
+-- ── finanzas_personales_reglas_categoria ────────────────────
+CREATE POLICY "auth_select_reglas_categoria"
+  ON finanzas_personales_reglas_categoria FOR SELECT
+  TO authenticated USING (true);
+
+CREATE POLICY "auth_insert_reglas_categoria"
+  ON finanzas_personales_reglas_categoria FOR INSERT
+  TO authenticated WITH CHECK (true);
+
+CREATE POLICY "auth_update_reglas_categoria"
+  ON finanzas_personales_reglas_categoria FOR UPDATE
+  TO authenticated USING (true) WITH CHECK (true);
+
 -- ── finanzas_personales_gamificacion ────────────────────────
 CREATE POLICY "auth_select_gamificacion"
   ON finanzas_personales_gamificacion FOR SELECT

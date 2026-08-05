@@ -11,7 +11,7 @@ import { SankeyFlow } from './SankeyFlow';
 
 const COLORS = ['#10b981', '#f43f5e', '#3b82f6', '#f59e0b', '#8b5cf6', '#64748b', '#ec4899', '#06b6d4'];
 
-export function Statistics({ transactions, budgetData = [] }) {
+export function Statistics({ transactions, budgetData = [], categoryColorMap = {} }) {
   const { settings } = useSettings();
   const C = settings.currency;
   const [excludeTransfers, setExcludeTransfers] = useState(false);
@@ -62,9 +62,10 @@ export function Statistics({ transactions, budgetData = [] }) {
     const topCategories = Object.entries(categoryExpenses)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 8)
-      .map(([name, value]) => ({
+      .map(([name, value], i) => ({
         name,
-        value: Number(value.toFixed(2))
+        value: Number(value.toFixed(2)),
+        color: categoryColorMap[name] || COLORS[i % COLORS.length],
       }));
 
     // Comparativa mes actual vs anterior
@@ -267,7 +268,7 @@ export function Statistics({ transactions, budgetData = [] }) {
                 />
                 <Bar dataKey="value" radius={[0, 8, 8, 0]}>
                   {stats.topCategories.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Bar>
               </BarChart>
@@ -294,7 +295,7 @@ export function Statistics({ transactions, budgetData = [] }) {
                   dataKey="value"
                 >
                   {stats.topCategories.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
                 <Tooltip formatter={(value) => fmtMoney(value, C)} />

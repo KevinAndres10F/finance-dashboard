@@ -66,7 +66,8 @@ function App() {
   // Auto-sugerir categoría según las reglas cuando cambia la descripción
   useEffect(() => {
     if (!formData.Descripción || isCustomCategory) return;
-    const suggested = rules.suggestCategory(formData.Descripción);
+    const result = rules.suggestCategory(formData.Descripción);
+    const suggested = result?.category || null;
     if (suggested && suggested !== formData.Categoría) {
       setAutoSuggested(suggested);
     } else {
@@ -185,17 +186,18 @@ function App() {
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.18 }}
           >
-            {activeTab === 'overview' && <Dashboard stats={stats} transactions={transactions} budgetData={budgetData} />}
+            {activeTab === 'overview' && <Dashboard stats={stats} transactions={transactions} budgetData={budgetData} categoryColorMap={rules.colorMap} />}
             {activeTab === 'transactions' && (
               <TransactionList
                 transactions={transactions}
                 categories={categories}
+                categoryNames={rules.categoryNames}
                 updateTransaction={updateTransaction}
                 deleteTransaction={deleteTransaction}
                 reviewCount={reviewCount}
               />
             )}
-            {activeTab === 'statistics' && <Statistics transactions={transactions} budgetData={budgetData} />}
+            {activeTab === 'statistics' && <Statistics transactions={transactions} budgetData={budgetData} categoryColorMap={rules.colorMap} />}
             {activeTab === 'budgets' && <Budgets transactions={transactions} categories={categories} />}
             {activeTab === 'wealth' && <WealthHub />}
             {activeTab === 'goals' && <Goals />}

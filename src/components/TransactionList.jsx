@@ -18,7 +18,7 @@ const MONTHS = [
 
 const selectCls = "h-9 px-3 rounded-xl text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-400/50 bg-white/85 dark:bg-slate-800/75 backdrop-blur-sm border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-200";
 
-export function TransactionList({ transactions, categories, updateTransaction, deleteTransaction, reviewCount = 0 }) {
+export function TransactionList({ transactions, categories, categoryNames = [], updateTransaction, deleteTransaction, reviewCount = 0 }) {
   const { settings } = useSettings();
   const txMeta = useTransactionMeta();
   const now = new Date();
@@ -42,9 +42,10 @@ export function TransactionList({ transactions, categories, updateTransaction, d
   }, [transactions]);
 
   const allCats = useMemo(() => {
-    const cats = [...new Set(transactions.map(t => t.Categoría).filter(Boolean))];
-    return cats.sort();
-  }, [transactions]);
+    const fromTxs = transactions.map(t => t.Categoría).filter(Boolean);
+    const merged = new Set([...categoryNames, ...fromTxs]);
+    return [...merged].sort();
+  }, [transactions, categoryNames]);
 
   const allTags = useMemo(() => {
     const set = new Set();
@@ -290,7 +291,13 @@ function TransactionItem({ transaction, meta, currency, onClick }) {
             {meta.notes && <StickyNote className="w-3.5 h-3.5 text-amber-500 shrink-0" title="Tiene notas" />}
           </div>
           <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 flex-wrap">
-            <span className="truncate">{transaction.Categoría}</span>
+            {transaction.Categoría === 'Por Clasificar' ? (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-700/60 text-slate-600 dark:text-slate-400 font-medium">
+                Por Clasificar
+              </span>
+            ) : (
+              <span className="truncate">{transaction.Categoría}</span>
+            )}
             <span>·</span>
             <span className="shrink-0">{transaction.Fecha}</span>
             {transaction.Cuenta && <><span>·</span><span className="shrink-0">{transaction.Cuenta}</span></>}
