@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { fechaLocal, isTransferTx } from '../lib/utils';
 
 const KEY = 'finance-subscriptions';
 const IGNORED_KEY = 'finance-subscriptions-ignored';
@@ -22,6 +23,7 @@ export function useSubscriptions(transactions = []) {
     for (const t of transactions) {
       const isExpense = t.Tipo === 'Gasto' || Number(t.Monto) < 0;
       if (!isExpense) continue;
+      if (isTransferTx(t)) continue;
       const desc = String(t.Descripción || '').trim().toLowerCase();
       if (!desc) continue;
       if (!groups[desc]) groups[desc] = [];
@@ -32,7 +34,7 @@ export function useSubscriptions(transactions = []) {
     for (const [desc, occs] of Object.entries(groups)) {
       if (occs.length < 2) continue;
       // months únicos
-      const months = new Set(occs.map(o => o.date?.slice(0, 7)).filter(Boolean));
+      const months = new Set(occs.map(o => o.date?.slice(0, 7) || '').filter(Boolean));
       if (months.size < 2) continue;
       // monto medio + variación
       const avg = occs.reduce((s, o) => s + o.amount, 0) / occs.length;

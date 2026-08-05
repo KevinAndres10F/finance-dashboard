@@ -31,10 +31,40 @@ export function fmtMoney(value, currency = 'USD', { sign = false, decimals = 2 }
   return `${prefix}${cfg.symbol}${formatted}`;
 }
 
+/* ─── Transfer detection from revision_motivo ─────────────────── */
+const TRANSFER_PATTERNS = [
+  'probable traspaso entre cuentas propias',
+  'probable pago de tarjeta o traspaso',
+];
+
+export function isTransferTx(tx) {
+  if (tx.Categoría === 'Transferencias') return true;
+  if (!tx.revision_motivo) return false;
+  const motivo = tx.revision_motivo.toLowerCase();
+  return TRANSFER_PATTERNS.some(p => motivo.includes(p));
+}
+
+export function parseMotivos(motivo) {
+  if (!motivo) return [];
+  return motivo.split(';').map(s => s.trim()).filter(Boolean);
+}
+
 /* ─── Stable transaction id ────────────────────────────────────── */
 export function txKey(t, idx = 0) {
   if (t.id) return String(t.id);
   return `${t.Fecha || ''}|${t.Descripción || ''}|${t.Monto || 0}|${t.Categoría || ''}|${idx}`;
+}
+
+/* ─── Timezone-correct date helpers (America/Guayaquil = UTC-5) ── */
+const _dtf = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Guayaquil', year: 'numeric', month: '2-digit', day: '2-digit' });
+
+export function fechaLocal(ts) {
+  if (!ts) return '';
+  return _dtf.format(typeof ts === 'string' ? new Date(ts) : ts);
+}
+
+export function mesLocal(ts) {
+  return fechaLocal(ts).slice(0, 7);
 }
 
 /* ─── Date utilities ───────────────────────────────────────────── */

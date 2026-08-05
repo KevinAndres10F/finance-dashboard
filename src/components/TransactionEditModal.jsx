@@ -33,8 +33,8 @@ export function TransactionEditModal({ tx, idx, meta, categories, onClose, onSav
         </div>
         <form onSubmit={submit} className="p-6 space-y-4">
           {!isLocal && (
-            <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50/80 dark:bg-amber-900/20 px-3 py-2 rounded-xl border border-amber-200/40 dark:border-amber-700/30">
-              Los cambios se guardan localmente (override). El backend Google Sheets no se modifica.
+            <p className="text-xs text-blue-700 dark:text-blue-400 bg-blue-50/80 dark:bg-blue-900/20 px-3 py-2 rounded-xl border border-blue-200/40 dark:border-blue-700/30">
+              Los cambios se guardan directamente en Supabase.
             </p>
           )}
 

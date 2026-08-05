@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Card } from './ui/Card';
-import { cn, fmtMoney } from '../lib/utils';
+import { cn, fmtMoney, mesLocal, isTransferTx } from '../lib/utils';
 import { useSettings } from '../hooks/useSettings';
 import { useAccounts } from '../hooks/useAccounts';
 import { useDebts } from '../hooks/useDebts';
@@ -13,7 +13,7 @@ import {
 import {
   TrendingUp, TrendingDown, Wallet, PiggyBank, Calendar, Zap,
   ArrowUp, ArrowDown, AlertTriangle, CheckCircle2, MinusCircle,
-  ShoppingBag, CreditCard, Banknote, Activity, Target, BarChart3, Repeat
+  ShoppingBag, CreditCard, Banknote, Activity, Target, BarChart3, Repeat, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -154,30 +154,36 @@ function BudgetStatusBadge({ budget }) {
 /* ════════════════════════════════════════════════════════════════
    DASHBOARD PRINCIPAL
 ════════════════════════════════════════════════════════════════ */
-export function Dashboard({ transactions, stats, budgetData }) {
+export function Dashboard({ transactions, stats, budgetData, categoryColorMap = {}, excludeTransfers = true, onToggleExcludeTransfers }) {
   const { settings } = useSettings();
-  const { totals: accountTotals } = useAccounts();
+  const { accounts, totals: accountTotals } = useAccounts(transactions);
   const { totals: debtTotals } = useDebts();
   const { goals, summary: goalsSummary } = useGoals();
   const subs = useSubscriptions(transactions);
   const C = settings.currency;
+
+  const effectiveTxs = useMemo(
+    () => excludeTransfers ? transactions.filter(t => !isTransferTx(t)) : transactions,
+    [transactions, excludeTransfers]
+  );
+
   const metrics = useMemo(() => {
     const now = new Date();
-    const currentMonth  = now.toISOString().slice(0, 7);
+    const currentMonth  = mesLocal(now);
     const dayOfMonth    = now.getDate();
     const daysInMonth   = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const daysLeft      = daysInMonth - dayOfMonth;
 
     /* Mes anterior */
     const prevDate  = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const prevMonth = prevDate.toISOString().slice(0, 7);
+    const prevMonth = mesLocal(prevDate);
 
-    const monthTxs = transactions.filter(t => t.Fecha?.startsWith(currentMonth));
-    const prevTxs  = transactions.filter(t => t.Fecha?.startsWith(prevMonth));
+    const monthTxs = effectiveTxs.filter(t => t.Fecha?.startsWith(currentMonth));
+    const prevTxs  = effectiveTxs.filter(t => t.Fecha?.startsWith(prevMonth));
 
-    const income    = stats.income;
-    const expenses  = stats.expenses;
-    const balance   = stats.balance;
+    const income   = monthTxs.filter(t => t.Tipo === 'Ingreso' || t.Monto > 0).reduce((a, t) => a + Math.abs(Number(t.Monto)), 0);
+    const expenses = monthTxs.filter(t => t.Tipo === 'Gasto'   || t.Monto < 0).reduce((a, t) => a + Math.abs(Number(t.Monto)), 0);
+    const balance  = income - expenses;
 
     const prevIncome   = prevTxs.filter(t => t.Tipo === 'Ingreso' || t.Monto > 0).reduce((a, t) => a + Math.abs(Number(t.Monto)), 0);
     const prevExpenses = prevTxs.filter(t => t.Tipo === 'Gasto'   || t.Monto < 0).reduce((a, t) => a + Math.abs(Number(t.Monto)), 0);
@@ -195,18 +201,12 @@ export function Dashboard({ transactions, stats, budgetData }) {
       .filter(t => t.Tipo === 'Gasto' || t.Monto < 0)
       .reduce((a, t) => { const c = t.Categoría || 'Otros'; a[c] = (a[c] || 0) + Math.abs(Number(t.Monto)); return a; }, {});
     const topCategories = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 7)
-      .map(([name, value], i) => ({ name, value, color: PALETTE[i % PALETTE.length] }));
+      .map(([name, value], i) => ({ name, value, color: categoryColorMap[name] || PALETTE[i % PALETTE.length] }));
 
-    /* Balance por cuenta (historial completo) */
-    const byAccount = transactions.reduce((a, t) => {
-      const acc = t.Cuenta || 'Principal';
-      if (!a[acc]) a[acc] = 0;
-      a[acc] += t.Tipo === 'Ingreso' || t.Monto > 0 ? Math.abs(Number(t.Monto)) : -Math.abs(Number(t.Monto));
-      return a;
-    }, {});
+    /* Balance por cuenta — usa accounts de useAccounts (saldo_inicial + movimientos) */
 
     /* Tendencia mensual (últimos 7 meses) */
-    const monthlyMap = transactions.reduce((a, t) => {
+    const monthlyMap = effectiveTxs.reduce((a, t) => {
       const k = t.Fecha?.slice(0, 7);
       if (!k) return a;
       if (!a[k]) a[k] = { income: 0, expenses: 0 };
@@ -228,7 +228,7 @@ export function Dashboard({ transactions, stats, budgetData }) {
     const weeklyTrend = Array.from({ length: 6 }, (_, i) => {
       const end   = new Date(now.getTime() - i * 7 * 86400000);
       const start = new Date(end.getTime() - 7 * 86400000);
-      const gastos = transactions
+      const gastos = effectiveTxs
         .filter(t => { const d = new Date(t.Fecha); return d >= start && d < end && (t.Tipo === 'Gasto' || t.Monto < 0); })
         .reduce((a, t) => a + Math.abs(Number(t.Monto)), 0);
       return { week: `S-${i === 0 ? 'actual' : i}`, gastos: +gastos.toFixed(2) };
@@ -244,7 +244,7 @@ export function Dashboard({ transactions, stats, budgetData }) {
     }, {});
 
     /* Recientes */
-    const recentTxs = [...transactions]
+    const recentTxs = [...effectiveTxs]
       .sort((a, b) => b.Fecha?.localeCompare(a.Fecha || ''))
       .slice(0, 8);
 
@@ -262,19 +262,32 @@ export function Dashboard({ transactions, stats, budgetData }) {
       income, expenses, balance, savingsRate, dailyAvg, projection,
       remainingBudget, daysLeft, daysInMonth, dayOfMonth,
       incomeChange, expenseChange, prevIncome, prevExpenses,
-      topCategories, byAccount, accountMonthly,
+      topCategories, accountMonthly,
       monthlyTrend, weeklyTrend, recentTxs,
       totalBudgets, goodBudgets, budgetHealth, biggestExpense,
       totalTxCount: monthTxs.length,
     };
-  }, [transactions, stats, budgetData]);
+  }, [effectiveTxs, stats, budgetData]);
 
   const fmt = (n) => fmtMoney(n, C);
-  const upcomingTotal = subs.upcomingBills.slice(0, 5).reduce((s, b) => s + Number(b.amount || 0), 0);
+  const upcomingCount = subs.upcomingBills.length;
+  const upcomingNext = subs.upcomingBills.slice(0, 5);
   const netWorth = accountTotals.netWorth - debtTotals.totalBalance;
+  const hasSaldoInicial = accounts.some(a => a.hasSaldoInicial);
 
   return (
     <div className="space-y-6">
+
+      {/* ── Toggle excluir traspasos ── */}
+      <div className="flex items-center justify-end">
+        <button onClick={onToggleExcludeTransfers}
+          className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+          {excludeTransfers
+            ? <ToggleRight className="w-5 h-5 text-indigo-500" />
+            : <ToggleLeft className="w-5 h-5 text-slate-400" />}
+          Excluir traspasos entre cuentas
+        </button>
+      </div>
 
       {/* ── ROW 0: Patrimonio + Objetivos + Suscripciones (resumen) ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -282,19 +295,31 @@ export function Dashboard({ transactions, stats, budgetData }) {
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-medium text-slate-600 dark:text-slate-300">Patrimonio Neto</p>
             <div className={cn('p-2 rounded-xl',
+              !hasSaldoInicial ? 'bg-slate-100 dark:bg-slate-800 text-slate-500' :
               netWorth >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600'
             )}>
               <Wallet className="w-4 h-4" />
             </div>
           </div>
-          <p className={cn('text-2xl font-bold tracking-tight',
-            netWorth >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'
-          )}>
-            {fmtMoney(netWorth, C, { sign: true })}
-          </p>
-          <p className="text-xs text-slate-400 mt-2">
-            Activos {fmt(accountTotals.assets)} · Pasivos {fmt(accountTotals.liabilities + debtTotals.totalBalance)}
-          </p>
+          {hasSaldoInicial ? (
+            <>
+              <p className={cn('text-2xl font-bold tracking-tight',
+                netWorth >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'
+              )}>
+                {fmtMoney(netWorth, C, { sign: true })}
+              </p>
+              <p className="text-xs text-slate-400 mt-2">
+                Activos {fmt(accountTotals.assets)} · Pasivos {fmt(accountTotals.liabilities + debtTotals.totalBalance)}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg font-semibold text-slate-400 dark:text-slate-500">—</p>
+              <p className="text-xs text-amber-500 dark:text-amber-400 mt-2">
+                Configura los saldos iniciales en Patrimonio
+              </p>
+            </>
+          )}
         </Card>
         <Card className="p-5">
           <div className="flex items-center justify-between mb-2">
@@ -317,9 +342,9 @@ export function Dashboard({ transactions, stats, budgetData }) {
               <Repeat className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{fmt(upcomingTotal)}</p>
+          <p className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{fmt(subs.monthlyTotal)}<span className="text-sm font-normal text-slate-400">/mes</span></p>
           <p className="text-xs text-slate-400 mt-2">
-            {subs.upcomingBills.length} suscripciones · {fmt(subs.monthlyTotal)}/mes
+            {subs.all.length} suscripciones · {upcomingCount} próximos cobros
           </p>
         </Card>
       </div>
@@ -483,14 +508,24 @@ export function Dashboard({ transactions, stats, budgetData }) {
             <h3 className="text-base font-semibold text-slate-800 dark:text-white">Balance por Cuenta</h3>
           </div>
           <div className="space-y-3">
-            {Object.entries(metrics.byAccount).length > 0 ? Object.entries(metrics.byAccount).map(([acc, bal]) => (
-              <div key={acc} className="flex items-center justify-between py-2 border-b border-slate-100/80 dark:border-slate-700/40 last:border-0">
-                <div className="flex items-center gap-2">
-                  <div className={cn('w-2 h-2 rounded-full', bal >= 0 ? 'bg-emerald-500' : 'bg-rose-500')} />
-                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{acc}</span>
+            {accounts.length > 0 ? accounts.map(acc => (
+              <div key={acc.id} className="flex items-center justify-between py-2 border-b border-slate-100/80 dark:border-slate-700/40 last:border-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={cn('w-2 h-2 rounded-full shrink-0',
+                    acc.kind === 'liability' ? 'bg-amber-500' : acc.balance >= 0 ? 'bg-emerald-500' : 'bg-rose-500')} />
+                  <div className="min-w-0">
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300 block truncate">{acc.name}</span>
+                    {!acc.hasSaldoInicial && (
+                      <span className="text-[10px] text-amber-500 dark:text-amber-400">saldo relativo: falta saldo inicial</span>
+                    )}
+                  </div>
                 </div>
-                <span className={cn('text-sm font-bold', bal >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400')}>
-                  {bal >= 0 ? '+' : ''}${Math.abs(bal).toFixed(2)}
+                <span className={cn('text-sm font-bold shrink-0',
+                  acc.kind === 'liability'
+                    ? 'text-amber-700 dark:text-amber-400'
+                    : acc.balance >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'
+                )}>
+                  {fmtMoney(acc.balance, C, { sign: true })}
                 </span>
               </div>
             )) : (

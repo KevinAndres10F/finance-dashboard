@@ -123,11 +123,11 @@ Para verificar que todo funciona:
 
 ### La app muestra página en blanco
 - Revisa la consola del navegador (F12)
-- Verifica que la URL de Google Sheets sea correcta
+- Verifica que las variables VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY estén configuradas
 
 ### Las transacciones no se guardan
-- Verifica que el Google Apps Script esté publicado correctamente
-- Revisa que la URL en `useFinanzas.js` sea la correcta
+- Verifica que las políticas RLS estén aplicadas en Supabase
+- Revisa la consola del navegador para errores de permisos
 
 ## 💡 Consejo
 

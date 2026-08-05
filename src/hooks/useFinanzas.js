@@ -1,19 +1,15 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = SUPABASE_URL && SUPABASE_KEY
-  ? createClient(SUPABASE_URL, SUPABASE_KEY)
-  : null;
+import { supabase, isAuthError } from '../lib/supabase';
+import { fechaLocal, mesLocal } from '../lib/utils';
 
 const TABLE = 'finanzas_personales_transacciones';
+const PAGE_SIZE = 1000;
 
 function toFrontend(row) {
   return {
     id: row.id,
-    Fecha: row.fecha ? row.fecha.slice(0, 10) : '',
-    Mes: row.mes ?? '',
+    Fecha: fechaLocal(row.fecha),
+    Mes: mesLocal(row.fecha),
     Descripción: row.descripcion ?? '',
     Comercio: row.comercio ?? '',
     Monto: Number(row.monto) || 0,
@@ -21,13 +17,35 @@ function toFrontend(row) {
     Cuenta: row.cuenta ?? 'Principal',
     Tipo: row.tipo ?? 'Gasto',
     origen: row.origen ?? '',
+    necesita_revision: !!row.necesita_revision,
+    revision_motivo: row.revision_motivo ?? '',
   };
+}
+
+async function fetchAllPages() {
+  const all = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select('*')
+      .eq('activo', true)
+      .order('fecha', { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return all;
 }
 
 export function useFinanzas() {
   const [transacciones, setTransacciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [readOnly, setReadOnly] = useState(false);
 
   const cargar = useCallback(async () => {
     if (!supabase) {
@@ -37,15 +55,12 @@ export function useFinanzas() {
     }
     setLoading(true);
     setError(null);
-    const { data, error: err } = await supabase
-      .from(TABLE)
-      .select('*')
-      .order('fecha', { ascending: false });
-    if (err) {
+    try {
+      const rows = await fetchAllPages();
+      setTransacciones(rows.map(toFrontend));
+    } catch (err) {
       setError(err.message);
       setTransacciones([]);
-    } else {
-      setTransacciones((data ?? []).map(toFrontend));
     }
     setLoading(false);
   }, []);
@@ -56,9 +71,10 @@ export function useFinanzas() {
     if (!supabase) return { success: false, error: 'Supabase no configurado' };
     setError(null);
     const monto = tx.Tipo === 'Gasto' ? -Math.abs(Number(tx.Monto)) : Math.abs(Number(tx.Monto));
+    const fecha = tx.Fecha || fechaLocal(new Date());
     const { error: err } = await supabase.from(TABLE).insert([{
-      fecha: tx.Fecha || new Date().toISOString().split('T')[0],
-      mes: tx.Mes || new Date().toISOString().slice(0, 7),
+      fecha,
+      mes: tx.Mes || mesLocal(new Date()),
       descripcion: tx.Descripción || tx.Descripcion || '',
       comercio: tx.Comercio || tx.Descripción || '',
       monto,
@@ -67,7 +83,10 @@ export function useFinanzas() {
       tipo: tx.Tipo || 'Gasto',
       origen: 'Web Manual',
     }]);
-    if (err) { setError(err.message); return { success: false, error: err.message }; }
+    if (err) {
+      if (isAuthError(err)) { setReadOnly(true); setError('Modo solo lectura — requiere Supabase Auth'); return { success: false, error: 'Modo solo lectura — requiere Supabase Auth' }; }
+      setError(err.message); return { success: false, error: err.message };
+    }
     await cargar();
     return { success: true };
   }, [cargar]);
@@ -84,22 +103,28 @@ export function useFinanzas() {
     if (patch.Comercio !== undefined) mapped.comercio = patch.Comercio;
     if (Object.keys(mapped).length === 0) return;
     const { error: err } = await supabase.from(TABLE).update(mapped).eq('id', id);
-    if (err) { setError(err.message); return; }
+    if (err) {
+      if (isAuthError(err)) { setReadOnly(true); setError('Modo solo lectura — requiere Supabase Auth'); return; }
+      setError(err.message); return;
+    }
     await cargar();
   }, [cargar]);
 
   const deleteTransaction = useCallback(async (id) => {
     if (!supabase) return;
-    const { error: err } = await supabase.from(TABLE).delete().eq('id', id);
-    if (err) { setError(err.message); return; }
+    const { error: err } = await supabase.from(TABLE).update({ activo: false }).eq('id', id);
+    if (err) {
+      if (isAuthError(err)) { setReadOnly(true); setError('Modo solo lectura — requiere Supabase Auth'); return; }
+      setError(err.message); return;
+    }
     await cargar();
   }, [cargar]);
 
   const importTransactions = useCallback(async (rows) => {
     if (!supabase) return 0;
     const inserts = rows.map(r => ({
-      fecha: r.Fecha || new Date().toISOString().split('T')[0],
-      mes: r.Mes || '',
+      fecha: r.Fecha || fechaLocal(new Date()),
+      mes: r.Mes || mesLocal(new Date()),
       descripcion: r.Descripción || r.Descripcion || '',
       comercio: r.Comercio || r.Descripción || '',
       monto: r.Tipo === 'Gasto' ? -Math.abs(Number(r.Monto)) : Math.abs(Number(r.Monto)),
@@ -116,8 +141,13 @@ export function useFinanzas() {
 
   const transactions = transacciones;
 
+  const reviewCount = useMemo(
+    () => transactions.filter(t => t.necesita_revision).length,
+    [transactions]
+  );
+
   const stats = useMemo(() => {
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    const currentMonth = mesLocal(new Date());
     const currentMonthTxs = transactions.filter(t => t.Fecha?.startsWith(currentMonth));
 
     const income = currentMonthTxs
@@ -149,12 +179,14 @@ export function useFinanzas() {
     transactions,
     loading,
     error,
+    readOnly,
     addTransaction,
     updateTransaction,
     deleteTransaction,
     importTransactions,
     stats,
     categories,
+    reviewCount,
     refresh: cargar,
   };
 }

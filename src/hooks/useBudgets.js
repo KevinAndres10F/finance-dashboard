@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { mesLocal } from '../lib/utils';
 
 export function useBudgets(transactions) {
   const [budgets, setBudgets] = useState(() => {
@@ -7,7 +8,7 @@ export function useBudgets(transactions) {
   });
 
   const currentMonthExpenses = useMemo(() => {
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    const currentMonth = mesLocal(new Date());
     return transactions
       .filter(t => t.Fecha?.startsWith(currentMonth) && (t.Tipo === 'Gasto' || t.Monto < 0))
       .reduce((acc, t) => {

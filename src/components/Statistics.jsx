@@ -4,26 +4,31 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
-import { TrendingUp, TrendingDown, Target, Calendar, PiggyBank, AlertCircle, Rocket } from 'lucide-react';
-import { cn, fmtMoney } from '../lib/utils';
+import { TrendingUp, TrendingDown, Target, Calendar, PiggyBank, AlertCircle, Rocket, ToggleLeft, ToggleRight } from 'lucide-react';
+import { cn, fmtMoney, mesLocal, isTransferTx } from '../lib/utils';
 import { useSettings } from '../hooks/useSettings';
 import { SankeyFlow } from './SankeyFlow';
 
 const COLORS = ['#10b981', '#f43f5e', '#3b82f6', '#f59e0b', '#8b5cf6', '#64748b', '#ec4899', '#06b6d4'];
 
-export function Statistics({ transactions, budgetData = [] }) {
+export function Statistics({ transactions, budgetData = [], categoryColorMap = {}, excludeTransfers = true, onToggleExcludeTransfers }) {
   const { settings } = useSettings();
   const C = settings.currency;
+
+  const effectiveTxs = useMemo(
+    () => excludeTransfers ? transactions.filter(t => !isTransferTx(t)) : transactions,
+    [transactions, excludeTransfers]
+  );
+
   const stats = useMemo(() => {
-    // Agrupar por mes
-    const monthlyData = transactions.reduce((acc, t) => {
-      const date = new Date(t.Fecha);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const monthlyData = effectiveTxs.reduce((acc, t) => {
+      const monthKey = t.Fecha?.slice(0, 7);
       
+      if (!monthKey) return acc;
       if (!acc[monthKey]) {
         acc[monthKey] = { month: monthKey, income: 0, expenses: 0 };
       }
-      
+
       const amount = Math.abs(Number(t.Monto));
       if (t.Tipo === 'Ingreso' || t.Monto > 0) {
         acc[monthKey].income += amount;
@@ -45,7 +50,7 @@ export function Statistics({ transactions, budgetData = [] }) {
       }));
 
     // Top categorías de gasto
-    const categoryExpenses = transactions
+    const categoryExpenses = effectiveTxs
       .filter(t => t.Tipo === 'Gasto' || t.Monto < 0)
       .reduce((acc, t) => {
         const cat = t.Categoría || 'Otros';
@@ -56,18 +61,18 @@ export function Statistics({ transactions, budgetData = [] }) {
     const topCategories = Object.entries(categoryExpenses)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 8)
-      .map(([name, value]) => ({
+      .map(([name, value], i) => ({
         name,
-        value: Number(value.toFixed(2))
+        value: Number(value.toFixed(2)),
+        color: categoryColorMap[name] || COLORS[i % COLORS.length],
       }));
 
     // Comparativa mes actual vs anterior
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    const lastMonth = new Date(new Date().setMonth(new Date().getMonth() - 1))
-      .toISOString().slice(0, 7);
+    const currentMonth = mesLocal(new Date());
+    const lastMonth = mesLocal(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1));
 
-    const currentMonthData = transactions.filter(t => t.Fecha?.startsWith(currentMonth));
-    const lastMonthData = transactions.filter(t => t.Fecha?.startsWith(lastMonth));
+    const currentMonthData = effectiveTxs.filter(t => t.Fecha?.startsWith(currentMonth));
+    const lastMonthData = effectiveTxs.filter(t => t.Fecha?.startsWith(lastMonth));
 
     const currentIncome = currentMonthData
       .filter(t => t.Tipo === 'Ingreso' || t.Monto > 0)
@@ -102,7 +107,7 @@ export function Statistics({ transactions, budgetData = [] }) {
       const weekEnd = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
       const weekStart = new Date(weekEnd.getTime() - 7 * 24 * 60 * 60 * 1000);
       
-      const weekTransactions = transactions.filter(t => {
+      const weekTransactions = effectiveTxs.filter(t => {
         const tDate = new Date(t.Fecha);
         return tDate >= weekStart && tDate < weekEnd;
       });
@@ -135,12 +140,23 @@ export function Statistics({ transactions, budgetData = [] }) {
       },
       weeklyData
     };
-  }, [transactions]);
+  }, [effectiveTxs]);
 
   return (
     <div className="space-y-6">
+      {/* Toggle excluir traspasos */}
+      <div className="flex items-center justify-end">
+        <button onClick={onToggleExcludeTransfers}
+          className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+          {excludeTransfers
+            ? <ToggleRight className="w-5 h-5 text-indigo-500" />
+            : <ToggleLeft className="w-5 h-5 text-slate-400" />}
+          Excluir traspasos entre cuentas
+        </button>
+      </div>
+
       {/* Sankey de flujo de dinero */}
-      <SankeyFlow transactions={transactions} />
+      <SankeyFlow transactions={effectiveTxs} />
 
       {/* Métricas Clave */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -251,7 +267,7 @@ export function Statistics({ transactions, budgetData = [] }) {
                 />
                 <Bar dataKey="value" radius={[0, 8, 8, 0]}>
                   {stats.topCategories.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Bar>
               </BarChart>
@@ -278,7 +294,7 @@ export function Statistics({ transactions, budgetData = [] }) {
                   dataKey="value"
                 >
                   {stats.topCategories.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
                 <Tooltip formatter={(value) => fmtMoney(value, C)} />
