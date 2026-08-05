@@ -20,6 +20,14 @@ export const ACCOUNT_TYPES = [
   { id: 'other_debt',  label: 'Otra deuda',       kind: 'liability', icon: 'circle' },
 ];
 
+const TIPO_CUENTA_MAP = {
+  corriente: 'checking',
+  ahorros: 'savings',
+  tarjeta_credito: 'credit_card',
+  efectivo: 'cash',
+  inversion: 'investment',
+};
+
 const CREDIT_CARD_PATTERNS = ['tc', 'tarjeta', 'diners', 'visa', 'mastercard', 'amex'];
 
 function inferAccountType(name) {
@@ -92,7 +100,8 @@ export function useAccounts(transactions = []) {
     for (const name of distinctAccounts) {
       const sb = sbMap[name];
       const saldoInicial = sb ? Number(sb.saldo_inicial || 0) : 0;
-      const tipoCuenta = sb?.tipo_cuenta || inferAccountType(name);
+      const rawTipo = sb?.tipo_cuenta || '';
+      const tipoCuenta = TIPO_CUENTA_MAP[rawTipo] || (ACCOUNT_TYPES.some(t => t.id === rawTipo) ? rawTipo : inferAccountType(name));
       const kind = ACCOUNT_TYPES.find(t => t.id === tipoCuenta)?.kind || inferKind(name);
       const movements = movementsByAccount[name] || 0;
       const balance = saldoInicial + movements;

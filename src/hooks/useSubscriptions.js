@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { fechaLocal } from '../lib/utils';
+import { fechaLocal, isTransferTx } from '../lib/utils';
 
 const KEY = 'finance-subscriptions';
 const IGNORED_KEY = 'finance-subscriptions-ignored';
@@ -23,6 +23,7 @@ export function useSubscriptions(transactions = []) {
     for (const t of transactions) {
       const isExpense = t.Tipo === 'Gasto' || Number(t.Monto) < 0;
       if (!isExpense) continue;
+      if (isTransferTx(t)) continue;
       const desc = String(t.Descripción || '').trim().toLowerCase();
       if (!desc) continue;
       if (!groups[desc]) groups[desc] = [];

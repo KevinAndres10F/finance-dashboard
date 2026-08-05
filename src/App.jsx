@@ -30,16 +30,25 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn, fmtMoney } from './lib/utils';
 
+const EXCLUDE_TRANSFERS_KEY = 'finance-exclude-transfers';
+
 function App() {
   const auth = useDeviceAuth();
   const {
-    transactions, loading, error, addTransaction, updateTransaction,
+    transactions, loading, error, readOnly, addTransaction, updateTransaction,
     deleteTransaction, importTransactions, stats, categories, reviewCount
   } = useFinanzas();
   const { budgetData, budgetsInWarning, budgetsExceeded } = useBudgets(transactions);
   const gamification = useGamification(transactions, budgetData);
   const { settings } = useSettings();
   const rules = useCategoryRules(transactions);
+
+  const [excludeTransfers, setExcludeTransfers] = useState(() => {
+    try { const v = localStorage.getItem(EXCLUDE_TRANSFERS_KEY); return v !== null ? JSON.parse(v) : true; } catch { return true; }
+  });
+  const toggleExcludeTransfers = () => {
+    setExcludeTransfers(prev => { const next = !prev; localStorage.setItem(EXCLUDE_TRANSFERS_KEY, JSON.stringify(next)); return next; });
+  };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
@@ -169,13 +178,20 @@ function App() {
         onToggleDarkMode={() => setDarkMode(!darkMode)}
         authEnabled={settings.authEnabled}
         onLock={auth.lock}
-        onNewTransaction={() => setIsModalOpen(true)}
+        onNewTransaction={readOnly ? undefined : () => setIsModalOpen(true)}
         drawerOpen={drawerOpen}
         onDrawerToggle={setDrawerOpen}
       />
 
       <div className="md:ml-64">
         <BudgetAlertBanner budgetsInWarning={budgetsInWarning} budgetsExceeded={budgetsExceeded} />
+        {readOnly && (
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+            <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/30 rounded-xl px-3 py-2">
+              <span className="font-semibold">Modo solo lectura</span> — crear y editar transacciones requiere Supabase Auth
+            </div>
+          </div>
+        )}
 
         <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 pb-24 md:pb-12 space-y-6">
           <AnimatePresence mode="wait">
@@ -186,7 +202,7 @@ function App() {
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.18 }}
           >
-            {activeTab === 'overview' && <Dashboard stats={stats} transactions={transactions} budgetData={budgetData} categoryColorMap={rules.colorMap} />}
+            {activeTab === 'overview' && <Dashboard stats={stats} transactions={transactions} budgetData={budgetData} categoryColorMap={rules.colorMap} excludeTransfers={excludeTransfers} onToggleExcludeTransfers={toggleExcludeTransfers} />}
             {activeTab === 'transactions' && (
               <TransactionList
                 transactions={transactions}
@@ -197,7 +213,7 @@ function App() {
                 reviewCount={reviewCount}
               />
             )}
-            {activeTab === 'statistics' && <Statistics transactions={transactions} budgetData={budgetData} categoryColorMap={rules.colorMap} />}
+            {activeTab === 'statistics' && <Statistics transactions={transactions} budgetData={budgetData} categoryColorMap={rules.colorMap} excludeTransfers={excludeTransfers} onToggleExcludeTransfers={toggleExcludeTransfers} />}
             {activeTab === 'budgets' && <Budgets transactions={transactions} categories={categories} />}
             {activeTab === 'wealth' && <WealthHub />}
             {activeTab === 'goals' && <Goals />}

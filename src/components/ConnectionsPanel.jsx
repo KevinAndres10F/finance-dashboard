@@ -34,17 +34,20 @@ export function ConnectionsPanel() {
     }
 
     let emails = null;
-    const { data: emailData, error: emailErr } = await supabase
-      .from('finanzas_personales_email_log')
-      .select('estado')
-      .limit(500);
-
-    if (!emailErr && emailData) {
-      const counts = emailData.reduce((acc, e) => {
-        acc[e.estado] = (acc[e.estado] || 0) + 1;
-        return acc;
-      }, {});
-      emails = { total: emailData.length, ...counts };
+    const estados = ['procesado', 'error', 'ignorado'];
+    const countQueries = await Promise.all([
+      supabase.from('finanzas_personales_email_log').select('*', { count: 'exact', head: true }),
+      ...estados.map(e =>
+        supabase.from('finanzas_personales_email_log').select('*', { count: 'exact', head: true }).eq('estado', e)
+      ),
+    ]);
+    const totalRes = countQueries[0];
+    if (!totalRes.error && totalRes.count != null) {
+      emails = { total: totalRes.count };
+      estados.forEach((e, i) => {
+        const r = countQueries[i + 1];
+        if (!r.error && r.count != null) emails[e] = r.count;
+      });
     }
 
     setHealth({

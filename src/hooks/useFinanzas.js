@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, isAuthError } from '../lib/supabase';
 import { fechaLocal, mesLocal } from '../lib/utils';
 
 const TABLE = 'finanzas_personales_transacciones';
@@ -45,6 +45,7 @@ export function useFinanzas() {
   const [transacciones, setTransacciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [readOnly, setReadOnly] = useState(false);
 
   const cargar = useCallback(async () => {
     if (!supabase) {
@@ -82,7 +83,10 @@ export function useFinanzas() {
       tipo: tx.Tipo || 'Gasto',
       origen: 'Web Manual',
     }]);
-    if (err) { setError(err.message); return { success: false, error: err.message }; }
+    if (err) {
+      if (isAuthError(err)) { setReadOnly(true); setError('Modo solo lectura — requiere Supabase Auth'); return { success: false, error: 'Modo solo lectura — requiere Supabase Auth' }; }
+      setError(err.message); return { success: false, error: err.message };
+    }
     await cargar();
     return { success: true };
   }, [cargar]);
@@ -99,14 +103,20 @@ export function useFinanzas() {
     if (patch.Comercio !== undefined) mapped.comercio = patch.Comercio;
     if (Object.keys(mapped).length === 0) return;
     const { error: err } = await supabase.from(TABLE).update(mapped).eq('id', id);
-    if (err) { setError(err.message); return; }
+    if (err) {
+      if (isAuthError(err)) { setReadOnly(true); setError('Modo solo lectura — requiere Supabase Auth'); return; }
+      setError(err.message); return;
+    }
     await cargar();
   }, [cargar]);
 
   const deleteTransaction = useCallback(async (id) => {
     if (!supabase) return;
     const { error: err } = await supabase.from(TABLE).update({ activo: false }).eq('id', id);
-    if (err) { setError(err.message); return; }
+    if (err) {
+      if (isAuthError(err)) { setReadOnly(true); setError('Modo solo lectura — requiere Supabase Auth'); return; }
+      setError(err.message); return;
+    }
     await cargar();
   }, [cargar]);
 
@@ -169,6 +179,7 @@ export function useFinanzas() {
     transactions,
     loading,
     error,
+    readOnly,
     addTransaction,
     updateTransaction,
     deleteTransaction,

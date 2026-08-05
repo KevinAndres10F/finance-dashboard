@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Card } from './ui/Card';
 import { cn, fmtMoney, mesLocal, isTransferTx } from '../lib/utils';
 import { useSettings } from '../hooks/useSettings';
@@ -154,14 +154,13 @@ function BudgetStatusBadge({ budget }) {
 /* ════════════════════════════════════════════════════════════════
    DASHBOARD PRINCIPAL
 ════════════════════════════════════════════════════════════════ */
-export function Dashboard({ transactions, stats, budgetData, categoryColorMap = {} }) {
+export function Dashboard({ transactions, stats, budgetData, categoryColorMap = {}, excludeTransfers = true, onToggleExcludeTransfers }) {
   const { settings } = useSettings();
   const { accounts, totals: accountTotals } = useAccounts(transactions);
   const { totals: debtTotals } = useDebts();
   const { goals, summary: goalsSummary } = useGoals();
   const subs = useSubscriptions(transactions);
   const C = settings.currency;
-  const [excludeTransfers, setExcludeTransfers] = useState(false);
 
   const effectiveTxs = useMemo(
     () => excludeTransfers ? transactions.filter(t => !isTransferTx(t)) : transactions,
@@ -274,13 +273,14 @@ export function Dashboard({ transactions, stats, budgetData, categoryColorMap = 
   const upcomingCount = subs.upcomingBills.length;
   const upcomingNext = subs.upcomingBills.slice(0, 5);
   const netWorth = accountTotals.netWorth - debtTotals.totalBalance;
+  const hasSaldoInicial = accounts.some(a => a.hasSaldoInicial);
 
   return (
     <div className="space-y-6">
 
       {/* ── Toggle excluir traspasos ── */}
       <div className="flex items-center justify-end">
-        <button onClick={() => setExcludeTransfers(!excludeTransfers)}
+        <button onClick={onToggleExcludeTransfers}
           className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
           {excludeTransfers
             ? <ToggleRight className="w-5 h-5 text-indigo-500" />
@@ -295,19 +295,31 @@ export function Dashboard({ transactions, stats, budgetData, categoryColorMap = 
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-medium text-slate-600 dark:text-slate-300">Patrimonio Neto</p>
             <div className={cn('p-2 rounded-xl',
+              !hasSaldoInicial ? 'bg-slate-100 dark:bg-slate-800 text-slate-500' :
               netWorth >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600'
             )}>
               <Wallet className="w-4 h-4" />
             </div>
           </div>
-          <p className={cn('text-2xl font-bold tracking-tight',
-            netWorth >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'
-          )}>
-            {fmtMoney(netWorth, C, { sign: true })}
-          </p>
-          <p className="text-xs text-slate-400 mt-2">
-            Activos {fmt(accountTotals.assets)} · Pasivos {fmt(accountTotals.liabilities + debtTotals.totalBalance)}
-          </p>
+          {hasSaldoInicial ? (
+            <>
+              <p className={cn('text-2xl font-bold tracking-tight',
+                netWorth >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'
+              )}>
+                {fmtMoney(netWorth, C, { sign: true })}
+              </p>
+              <p className="text-xs text-slate-400 mt-2">
+                Activos {fmt(accountTotals.assets)} · Pasivos {fmt(accountTotals.liabilities + debtTotals.totalBalance)}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg font-semibold text-slate-400 dark:text-slate-500">—</p>
+              <p className="text-xs text-amber-500 dark:text-amber-400 mt-2">
+                Configura los saldos iniciales en Patrimonio
+              </p>
+            </>
+          )}
         </Card>
         <Card className="p-5">
           <div className="flex items-center justify-between mb-2">

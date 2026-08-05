@@ -25,7 +25,7 @@ export function Settings({ transactions, categories, importTransactions }) {
   const { settings, update } = useSettings();
   const {
     localRules, globalRules, categories: sbCategories, colorMap,
-    addRule, removeRule, ruleSuggestions, sbError,
+    addRule, removeRule, clearLocalRules, ruleSuggestions, sbError,
   } = useCategoryRules(transactions);
   const [match, setMatch] = useState('');
   const [category, setCategory] = useState(categories[0] || 'Otros');
@@ -276,6 +276,13 @@ export function Settings({ transactions, categories, importTransactions }) {
           <p className="text-sm text-slate-400 py-6 text-center">Sin reglas locales configuradas</p>
         ) : (
           <div className="space-y-1.5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-slate-500">{localRules.length} regla{localRules.length !== 1 ? 's' : ''}</span>
+              <button onClick={() => { if (confirm('¿Borrar todas las reglas locales? Las reglas globales de Supabase seguirán activas.')) clearLocalRules(); }}
+                className="text-xs text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 flex items-center gap-1">
+                <Trash2 className="w-3 h-3" /> Borrar todas
+              </button>
+            </div>
             {localRules.map(r => (
               <div key={r.id} className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200/80 dark:border-white/15">
                 <div className="flex items-center gap-2 text-sm">

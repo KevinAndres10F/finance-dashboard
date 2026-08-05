@@ -68,11 +68,11 @@ export function useCategoryRules(transactions = []) {
     return [...local, ...globalRules];
   }, [localRules, globalRules]);
 
-  const addRule = useCallback((match, category) => {
+  const addRule = useCallback((match, category, field = 'ambos') => {
     const cleaned = String(match || '').trim().toLowerCase();
     if (!cleaned || !category) return;
     if (localRules.some(r => r.match === cleaned && r.category === category)) return;
-    const next = [...localRules, { id: Date.now() + Math.random(), match: cleaned, category, hits: 0 }];
+    const next = [...localRules, { id: Date.now() + Math.random(), match: cleaned, category, field, hits: 0 }];
     setLocalRules(next); saveLocal(next);
   }, [localRules]);
 
@@ -81,12 +81,30 @@ export function useCategoryRules(transactions = []) {
     setLocalRules(next); saveLocal(next);
   }, [localRules]);
 
+  const clearLocalRules = useCallback(() => {
+    setLocalRules([]); saveLocal([]);
+  }, []);
+
   const suggestCategory = useCallback((description = '', comercio = '') => {
     const desc = String(description).toLowerCase();
     const com = String(comercio).toLowerCase();
 
-    const localMatch = localRules.find(r => desc.includes(r.match) || com.includes(r.match));
-    if (localMatch) return { category: localMatch.category, source: 'local' };
+    let bestLocal = null;
+    for (const r of localRules) {
+      const kw = r.match.toLowerCase();
+      let matches = false;
+      if (r.field === 'comercio') {
+        matches = com.includes(kw);
+      } else {
+        matches = desc.includes(kw) || com.includes(kw);
+      }
+      if (!matches) continue;
+      const prio = r.priority ?? 999;
+      if (!bestLocal || prio < bestLocal.priority || (prio === bestLocal.priority && kw.length > bestLocal.match.length)) {
+        bestLocal = { ...r, priority: prio };
+      }
+    }
+    if (bestLocal) return { category: bestLocal.category, source: 'local' };
 
     let best = null;
     for (const r of globalRules) {
@@ -136,6 +154,7 @@ export function useCategoryRules(transactions = []) {
     colorMap,
     addRule,
     removeRule,
+    clearLocalRules,
     suggestCategory,
     ruleSuggestions,
     sbError,

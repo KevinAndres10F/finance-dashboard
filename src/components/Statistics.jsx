@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Card } from './ui/Card';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -11,10 +11,9 @@ import { SankeyFlow } from './SankeyFlow';
 
 const COLORS = ['#10b981', '#f43f5e', '#3b82f6', '#f59e0b', '#8b5cf6', '#64748b', '#ec4899', '#06b6d4'];
 
-export function Statistics({ transactions, budgetData = [], categoryColorMap = {} }) {
+export function Statistics({ transactions, budgetData = [], categoryColorMap = {}, excludeTransfers = true, onToggleExcludeTransfers }) {
   const { settings } = useSettings();
   const C = settings.currency;
-  const [excludeTransfers, setExcludeTransfers] = useState(false);
 
   const effectiveTxs = useMemo(
     () => excludeTransfers ? transactions.filter(t => !isTransferTx(t)) : transactions,
@@ -147,7 +146,7 @@ export function Statistics({ transactions, budgetData = [], categoryColorMap = {
     <div className="space-y-6">
       {/* Toggle excluir traspasos */}
       <div className="flex items-center justify-end">
-        <button onClick={() => setExcludeTransfers(!excludeTransfers)}
+        <button onClick={onToggleExcludeTransfers}
           className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
           {excludeTransfers
             ? <ToggleRight className="w-5 h-5 text-indigo-500" />

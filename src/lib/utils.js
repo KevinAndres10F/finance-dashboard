@@ -38,6 +38,7 @@ const TRANSFER_PATTERNS = [
 ];
 
 export function isTransferTx(tx) {
+  if (tx.Categoría === 'Transferencias') return true;
   if (!tx.revision_motivo) return false;
   const motivo = tx.revision_motivo.toLowerCase();
   return TRANSFER_PATTERNS.some(p => motivo.includes(p));
