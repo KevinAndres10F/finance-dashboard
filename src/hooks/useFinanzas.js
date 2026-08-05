@@ -19,6 +19,9 @@ function toFrontend(row) {
     origen: row.origen ?? '',
     necesita_revision: !!row.necesita_revision,
     revision_motivo: row.revision_motivo ?? '',
+    es_traspaso: !!row.es_traspaso,
+    traspaso_id: row.traspaso_id ?? null,
+    traspaso_contraparte: row.traspaso_contraparte ?? null,
   };
 }
 

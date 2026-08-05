@@ -31,17 +31,9 @@ export function fmtMoney(value, currency = 'USD', { sign = false, decimals = 2 }
   return `${prefix}${cfg.symbol}${formatted}`;
 }
 
-/* ─── Transfer detection from revision_motivo ─────────────────── */
-const TRANSFER_PATTERNS = [
-  'probable traspaso entre cuentas propias',
-  'probable pago de tarjeta o traspaso',
-];
-
+/* ─── Transfer detection from es_traspaso column ─────────────── */
 export function isTransferTx(tx) {
-  if (tx.Categoría === 'Transferencias') return true;
-  if (!tx.revision_motivo) return false;
-  const motivo = tx.revision_motivo.toLowerCase();
-  return TRANSFER_PATTERNS.some(p => motivo.includes(p));
+  return tx.es_traspaso === true;
 }
 
 export function parseMotivos(motivo) {

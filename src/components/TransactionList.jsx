@@ -4,7 +4,7 @@ import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import {
   TrendingDown, TrendingUp, Search, Filter, Download, X, ChevronLeft, ChevronRight,
-  Edit2, Tag as TagIcon, CheckCircle2, StickyNote, AlertCircle
+  Edit2, Tag as TagIcon, CheckCircle2, StickyNote, AlertCircle, Repeat
 } from 'lucide-react';
 import { cn, fmtMoney, parseMotivos } from '../lib/utils';
 import { useSettings } from '../hooks/useSettings';
@@ -301,6 +301,21 @@ function TransactionItem({ transaction, meta, currency, onClick }) {
             <span>·</span>
             <span className="shrink-0">{transaction.Fecha}</span>
             {transaction.Cuenta && <><span>·</span><span className="shrink-0">{transaction.Cuenta}</span></>}
+            {transaction.traspaso_id ? (
+              <>
+                <span>·</span>
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-indigo-50/80 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 whitespace-nowrap">
+                  <Repeat className="w-2.5 h-2.5" />Traspaso{transaction.traspaso_contraparte ? ` → ${transaction.traspaso_contraparte}` : ''}
+                </span>
+              </>
+            ) : transaction.es_traspaso ? (
+              <>
+                <span>·</span>
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100/80 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                  <Repeat className="w-2.5 h-2.5" />Traspaso sin confirmar
+                </span>
+              </>
+            ) : null}
             {transaction.necesita_revision && transaction.revision_motivo && (
               <>
                 <span>·</span>
