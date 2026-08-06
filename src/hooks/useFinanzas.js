@@ -113,9 +113,12 @@ export function useFinanzas() {
     await cargar();
   }, [cargar]);
 
+  // Borrado suave: no existen policies de DELETE en Supabase — nunca usar .delete()
   const deleteTransaction = useCallback(async (id) => {
     if (!supabase) return;
-    const { error: err } = await supabase.from(TABLE).update({ activo: false }).eq('id', id);
+    const { error: err } = await supabase.from(TABLE)
+      .update({ activo: false, excluido_motivo: 'Eliminada desde la web' })
+      .eq('id', id);
     if (err) {
       if (isAuthError(err)) { setReadOnly(true); setError('Modo solo lectura — requiere Supabase Auth'); return; }
       setError(err.message); return;
