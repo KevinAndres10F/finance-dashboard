@@ -43,25 +43,25 @@ function KpiCard({ title, value, sub, icon: Icon, iconBg, valueClass, trend, tre
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay }}
     >
-      <Card className="p-5 h-full">
-        <div className="flex items-start justify-between gap-3">
+      <Card className="p-4 sm:p-5 h-full">
+        <div className="flex items-start justify-between gap-2 sm:gap-3">
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1 truncate">{title}</p>
-            <p className={cn('text-2xl font-bold tracking-tight truncate', valueClass || 'text-slate-900 dark:text-white')}>
+            <p className={cn('text-lg sm:text-2xl font-bold tracking-tight break-words', valueClass || 'text-slate-900 dark:text-white')}>
               {value}
             </p>
             {sub && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">{sub}</p>}
           </div>
-          <div className={cn('p-2.5 rounded-xl shrink-0', iconBg || 'bg-slate-100 dark:bg-slate-800')}>
-            <Icon className="w-5 h-5" />
+          <div className={cn('p-2 sm:p-2.5 rounded-xl shrink-0', iconBg || 'bg-slate-100 dark:bg-slate-800')}>
+            <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
         </div>
         {trend !== undefined && (
-          <div className="flex items-center gap-1 mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/50">
-            {trend === 'up' && <ArrowUp className="w-3 h-3 text-emerald-500" />}
-            {trend === 'down' && <ArrowDown className="w-3 h-3 text-rose-500" />}
-            {trend === 'neutral' && <MinusCircle className="w-3 h-3 text-slate-400" />}
-            <span className={cn('text-xs font-medium',
+          <div className="flex items-center gap-1 mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/50 min-w-0">
+            {trend === 'up' && <ArrowUp className="w-3 h-3 text-emerald-500 shrink-0" />}
+            {trend === 'down' && <ArrowDown className="w-3 h-3 text-rose-500 shrink-0" />}
+            {trend === 'neutral' && <MinusCircle className="w-3 h-3 text-slate-400 shrink-0" />}
+            <span className={cn('text-[11px] sm:text-xs font-medium truncate',
               trend === 'up' ? 'text-emerald-600 dark:text-emerald-400' :
               trend === 'down' ? 'text-rose-600 dark:text-rose-400' :
               'text-slate-500'
@@ -115,12 +115,12 @@ function RecentTx({ tx }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{tx.Descripción || '—'}</p>
-        <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-          <span>{tx.Categoría}</span>
+        <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
+          <span className="truncate max-w-[40vw] sm:max-w-none">{tx.Categoría}</span>
           <span>·</span>
-          <span>{tx.Fecha}</span>
-          <span>·</span>
-          <span className="capitalize">{tx.Cuenta}</span>
+          <span className="whitespace-nowrap">{tx.Fecha}</span>
+          <span className="hidden sm:inline">·</span>
+          <span className="capitalize whitespace-nowrap hidden sm:inline">{tx.Cuenta}</span>
         </div>
       </div>
       <span className={cn('text-sm font-bold shrink-0',
@@ -281,10 +281,10 @@ export function Dashboard({ transactions, stats, budgetData, categoryColorMap = 
       {/* ── Toggle excluir traspasos ── */}
       <div className="flex items-center justify-end">
         <button onClick={onToggleExcludeTransfers}
-          className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+          className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-full glass text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors">
           {excludeTransfers
-            ? <ToggleRight className="w-5 h-5 text-indigo-500" />
-            : <ToggleLeft className="w-5 h-5 text-slate-400" />}
+            ? <ToggleRight className="w-5 h-5 text-indigo-500 shrink-0" />
+            : <ToggleLeft className="w-5 h-5 text-slate-400 shrink-0" />}
           Excluir traspasos entre cuentas
         </button>
       </div>

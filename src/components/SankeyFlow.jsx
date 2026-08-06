@@ -105,7 +105,7 @@ export function SankeyFlow({ transactions }) {
         </span>
       </div>
       <div className="overflow-x-auto">
-        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" className="w-full" style={{ minHeight: 320 }}>
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" className="w-full min-w-[640px]" style={{ minHeight: 320 }}>
           {/* Flujos ingreso → hub */}
           {incomeFlows.map((f, i) => (
             <path key={`if-${i}`}

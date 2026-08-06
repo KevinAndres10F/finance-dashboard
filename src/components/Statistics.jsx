@@ -11,6 +11,21 @@ import { SankeyFlow } from './SankeyFlow';
 
 const COLORS = ['#10b981', '#f43f5e', '#3b82f6', '#f59e0b', '#8b5cf6', '#64748b', '#ec4899', '#06b6d4'];
 
+/* Tooltip con soporte de tema claro/oscuro (glass) */
+function ChartTooltip({ active, payload, label, currency = 'USD' }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="glass rounded-xl px-3 py-2 text-sm shadow-lg">
+      {label && <p className="font-semibold text-slate-700 dark:text-slate-200 mb-1">{label}</p>}
+      {payload.map((p, i) => (
+        <p key={i} style={{ color: p.color || p.payload?.color }} className="text-xs">
+          {p.name}: {fmtMoney(p.value, currency)}
+        </p>
+      ))}
+    </div>
+  );
+}
+
 export function Statistics({ transactions, budgetData = [], categoryColorMap = {}, excludeTransfers = true, onToggleExcludeTransfers }) {
   const { settings } = useSettings();
   const C = settings.currency;
@@ -147,10 +162,10 @@ export function Statistics({ transactions, budgetData = [], categoryColorMap = {
       {/* Toggle excluir traspasos */}
       <div className="flex items-center justify-end">
         <button onClick={onToggleExcludeTransfers}
-          className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+          className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-full glass text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors">
           {excludeTransfers
-            ? <ToggleRight className="w-5 h-5 text-indigo-500" />
-            : <ToggleLeft className="w-5 h-5 text-slate-400" />}
+            ? <ToggleRight className="w-5 h-5 text-indigo-500 shrink-0" />
+            : <ToggleLeft className="w-5 h-5 text-slate-400 shrink-0" />}
           Excluir traspasos entre cuentas
         </button>
       </div>
@@ -159,7 +174,7 @@ export function Statistics({ transactions, budgetData = [], categoryColorMap = {
       <SankeyFlow transactions={effectiveTxs} />
 
       {/* Métricas Clave */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         <MetricCard
           title="Tasa de Ahorro"
           value={`${stats.metrics.savingsRate.toFixed(1)}%`}
@@ -205,13 +220,7 @@ export function Statistics({ transactions, budgetData = [], categoryColorMap = {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="month" stroke="#64748b" style={{ fontSize: '12px' }} />
                 <YAxis stroke="#64748b" style={{ fontSize: '12px' }} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'white', 
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px'
-                  }}
-                />
+                <Tooltip content={<ChartTooltip currency={C} />} />
                 <Legend />
                 <Line 
                   type="monotone" 
@@ -250,21 +259,15 @@ export function Statistics({ transactions, budgetData = [], categoryColorMap = {
               <BarChart data={stats.topCategories} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis type="number" stroke="#64748b" style={{ fontSize: '12px' }} />
-                <YAxis 
-                  type="category" 
-                  dataKey="name" 
-                  stroke="#64748b" 
-                  style={{ fontSize: '11px' }}
-                  width={80}
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  stroke="#64748b"
+                  style={{ fontSize: '10px' }}
+                  width={92}
+                  tickFormatter={(v) => v.length > 13 ? v.slice(0, 12) + '…' : v}
                 />
-                <Tooltip 
-                  formatter={(value) => fmtMoney(value, C)}
-                  contentStyle={{ 
-                    backgroundColor: 'white', 
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px'
-                  }}
-                />
+                <Tooltip content={<ChartTooltip currency={C} />} />
                 <Bar dataKey="value" radius={[0, 8, 8, 0]}>
                   {stats.topCategories.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -286,10 +289,10 @@ export function Statistics({ transactions, budgetData = [], categoryColorMap = {
                 <Pie
                   data={stats.topCategories}
                   cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
+                  cy="45%"
+                  innerRadius={50}
+                  outerRadius={85}
+                  paddingAngle={2}
                   fill="#8884d8"
                   dataKey="value"
                 >
@@ -297,7 +300,8 @@ export function Statistics({ transactions, budgetData = [], categoryColorMap = {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value) => fmtMoney(value, C)} />
+                <Tooltip content={<ChartTooltip currency={C} />} />
+                <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 11 }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -314,14 +318,7 @@ export function Statistics({ transactions, budgetData = [], categoryColorMap = {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="week" stroke="#64748b" style={{ fontSize: '12px' }} />
                 <YAxis stroke="#64748b" style={{ fontSize: '12px' }} />
-                <Tooltip
-                  formatter={(value) => fmtMoney(value, C)}
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px'
-                  }}
-                />
+                <Tooltip content={<ChartTooltip currency={C} />} />
                 <Bar dataKey="gastos" fill="#f43f5e" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -340,14 +337,7 @@ export function Statistics({ transactions, budgetData = [], categoryColorMap = {
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis dataKey="name" stroke="#64748b" style={{ fontSize: '12px' }} />
                   <YAxis stroke="#64748b" style={{ fontSize: '12px' }} />
-                  <Tooltip
-                    formatter={(value) => fmtMoney(value, C)}
-                    contentStyle={{
-                      backgroundColor: 'white',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px'
-                    }}
-                  />
+                  <Tooltip content={<ChartTooltip currency={C} />} />
                   <Legend />
                   <Bar dataKey="Presupuesto" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="Gastado" radius={[4, 4, 0, 0]}>
@@ -371,10 +361,10 @@ export function Statistics({ transactions, budgetData = [], categoryColorMap = {
 function MetricCard({ title, value, icon: Icon, trend, className }) {
   return (
     <Card className="p-4">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-slate-600 dark:text-slate-300 mb-1">{title}</p>
-          <p className={cn("text-2xl font-bold", className)}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mb-1">{title}</p>
+          <p className={cn("text-base sm:text-xl lg:text-2xl font-bold whitespace-nowrap", className)}>
             {value}
           </p>
         </div>

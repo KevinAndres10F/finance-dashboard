@@ -219,9 +219,9 @@ export function TransactionList({ transactions, categories, categoryNames = [], 
             { label: 'Gastos',   value: periodSummary.expenses, cls: 'text-rose-700 dark:text-rose-400' },
             { label: 'Balance',  value: periodSummary.balance,  cls: periodSummary.balance >= 0 ? 'text-indigo-700 dark:text-indigo-400' : 'text-rose-700 dark:text-rose-400' },
           ].map(({ label, value, cls }) => (
-            <Card key={label} className="p-3 text-center">
+            <Card key={label} className="p-2.5 sm:p-3 text-center">
               <p className="text-xs text-slate-600 dark:text-slate-300 mb-0.5">{label}</p>
-              <p className={cn('text-lg font-bold', cls)}>{fmtMoney(value, settings.currency, { sign: label === 'Balance' })}</p>
+              <p className={cn('text-sm sm:text-lg font-bold break-words', cls)}>{fmtMoney(value, settings.currency, { sign: label === 'Balance' })}</p>
             </Card>
           ))}
         </div>
@@ -275,8 +275,8 @@ function TransactionItem({ transaction, meta, currency, onClick }) {
   const isExpense = transaction.Tipo === 'Gasto' || transaction.Monto < 0;
   return (
     <div onClick={onClick}
-      className="group flex items-center justify-between px-4 py-3 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors cursor-pointer">
-      <div className="flex items-center gap-3 min-w-0">
+      className="group flex items-center justify-between gap-2 px-3 sm:px-4 py-3 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors cursor-pointer">
+      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
         <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0',
           isExpense ? 'bg-rose-50 text-rose-500 dark:bg-rose-900/30 dark:text-rose-400'
                     : 'bg-emerald-50 text-emerald-500 dark:bg-emerald-900/30 dark:text-emerald-400'
@@ -299,8 +299,8 @@ function TransactionItem({ transaction, meta, currency, onClick }) {
               <span className="truncate">{transaction.Categoría}</span>
             )}
             <span>·</span>
-            <span className="shrink-0">{transaction.Fecha}</span>
-            {transaction.Cuenta && <><span>·</span><span className="shrink-0">{transaction.Cuenta}</span></>}
+            <span className="shrink-0 whitespace-nowrap">{transaction.Fecha}</span>
+            {transaction.Cuenta && <><span>·</span><span className="shrink-0 whitespace-nowrap">{transaction.Cuenta}</span></>}
             {transaction.traspaso_id ? (
               <>
                 <span>·</span>
@@ -343,13 +343,13 @@ function TransactionItem({ transaction, meta, currency, onClick }) {
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <span className={cn('font-bold',
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <span className={cn('font-bold text-sm sm:text-base whitespace-nowrap',
           isExpense ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
         )}>
           {isExpense ? '-' : '+'}{fmtMoney(Math.abs(transaction.Monto), currency)}
         </span>
-        <Edit2 className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors" />
+        <Edit2 className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors hidden sm:block" />
       </div>
     </div>
   );
