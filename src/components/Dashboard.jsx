@@ -1,11 +1,14 @@
 import { useMemo } from 'react';
 import { Card } from './ui/Card';
-import { cn, fmtMoney, mesLocal, isTransferTx } from '../lib/utils';
+import { cn, fmtMoney, isTransferTx } from '../lib/utils';
 import { useSettings } from '../hooks/useSettings';
 import { useAccounts } from '../hooks/useAccounts';
 import { useDebts } from '../hooks/useDebts';
 import { useGoals } from '../hooks/useGoals';
 import { useSubscriptions } from '../hooks/useSubscriptions';
+import { usePeriod } from '../hooks/usePeriod';
+import { PeriodSelector } from './PeriodSelector';
+import { computeCardMetrics, cardMonthlySeries } from '../lib/cards';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
@@ -13,7 +16,8 @@ import {
 import {
   TrendingUp, TrendingDown, Wallet, PiggyBank, Calendar, Zap,
   ArrowUp, ArrowDown, AlertTriangle, CheckCircle2, MinusCircle,
-  ShoppingBag, CreditCard, Banknote, Activity, Target, BarChart3, Repeat, ToggleLeft, ToggleRight
+  ShoppingBag, CreditCard, Banknote, Activity, Target, BarChart3, Repeat,
+  ToggleLeft, ToggleRight, Receipt, Info
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -37,6 +41,9 @@ function CustomTooltip({ active, payload, label, prefix = '$' }) {
 
 /* ── KPI Card ────────────────────────────────────────────────── */
 function KpiCard({ title, value, sub, icon: Icon, iconBg, valueClass, trend, trendValue, delay = 0 }) {
+  // Los montos largos ($11,100.00) no caben a tamaño completo en la tarjeta;
+  // se baja un escalón para que nunca se trunquen ni se partan en dos líneas.
+  const isLong = String(value).length > 9;
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -47,7 +54,10 @@ function KpiCard({ title, value, sub, icon: Icon, iconBg, valueClass, trend, tre
         <div className="flex items-start justify-between gap-2 sm:gap-3">
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1 truncate">{title}</p>
-            <p className={cn('text-lg sm:text-2xl font-bold tracking-tight break-words', valueClass || 'text-slate-900 dark:text-white')}>
+            <p className={cn('font-bold tracking-tight tabular-nums truncate',
+              isLong ? 'text-base sm:text-lg xl:text-xl' : 'text-lg sm:text-xl xl:text-2xl',
+              valueClass || 'text-slate-900 dark:text-white')}
+               title={typeof value === 'string' ? value : undefined}>
               {value}
             </p>
             {sub && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">{sub}</p>}
@@ -132,6 +142,117 @@ function RecentTx({ tx }) {
   );
 }
 
+/* ── Panel de tarjetas de crédito ────────────────────────────── */
+function CreditCardPanel({ metrics, series, totalExpenses, currency, periodLabel }) {
+  const fmt = (n) => fmtMoney(n, currency);
+  const pctTarjeta = totalExpenses > 0 ? (metrics.consumo / totalExpenses) * 100 : 0;
+  const diferencia = metrics.consumo - metrics.pagos;
+
+  return (
+    <Card className="p-5">
+      <div className="flex items-center gap-2 mb-1 flex-wrap">
+        <CreditCard className="w-4 h-4 text-indigo-500 shrink-0" />
+        <h3 className="text-base font-semibold text-slate-800 dark:text-white">Tarjetas de crédito</h3>
+        <span className="text-xs text-slate-400 ml-auto">{periodLabel}</span>
+      </div>
+      <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 flex items-start gap-1.5">
+        <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+        El consumo con tarjeta ya está contado en Gastos. El pago de la tarjeta es un traspaso
+        que liquida esos consumos, por eso no se suma de nuevo.
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <div className="rounded-xl border border-indigo-200/60 dark:border-indigo-700/30 bg-indigo-50/60 dark:bg-indigo-900/20 p-3">
+          <p className="text-xs font-medium text-indigo-700 dark:text-indigo-400 mb-1">Consumo con tarjeta</p>
+          <p className="text-xl font-bold text-indigo-800 dark:text-indigo-300 break-words">{fmt(metrics.consumo)}</p>
+          <p className="text-[11px] text-indigo-600/80 dark:text-indigo-400/80 mt-1">
+            {pctTarjeta.toFixed(0)}% de los gastos · ya en Gastos
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-slate-200/70 dark:border-white/10 bg-slate-50/70 dark:bg-slate-800/40 p-3">
+          <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Pago de tarjetas</p>
+          <p className="text-xl font-bold text-slate-800 dark:text-slate-200 break-words">{fmt(metrics.pagos)}</p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+            traspaso · no cuenta como gasto
+            {metrics.pagosSinConfirmar > 0 && ` · ${fmt(metrics.pagosSinConfirmar)} sin confirmar`}
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-emerald-200/60 dark:border-emerald-700/30 bg-emerald-50/60 dark:bg-emerald-900/20 p-3">
+          <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-1">Gasto directo</p>
+          <p className="text-xl font-bold text-emerald-800 dark:text-emerald-300 break-words">{fmt(metrics.gastoDirecto)}</p>
+          <p className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80 mt-1">
+            débito y efectivo
+          </p>
+        </div>
+      </div>
+
+      {/* Consumo pendiente de pagar en el período */}
+      <div className={cn('text-xs rounded-xl px-3 py-2 mb-4 border',
+        Math.abs(diferencia) < 0.01
+          ? 'bg-slate-50/70 dark:bg-slate-800/40 border-slate-200/70 dark:border-white/10 text-slate-600 dark:text-slate-300'
+          : diferencia > 0
+            ? 'bg-amber-50/70 dark:bg-amber-900/20 border-amber-200/60 dark:border-amber-700/30 text-amber-700 dark:text-amber-400'
+            : 'bg-emerald-50/70 dark:bg-emerald-900/20 border-emerald-200/60 dark:border-emerald-700/30 text-emerald-700 dark:text-emerald-400'
+      )}>
+        {diferencia > 0
+          ? <>Consumiste <span className="font-bold">{fmt(diferencia)}</span> más de lo que pagaste en el período — queda pendiente para el próximo corte.</>
+          : diferencia < 0
+            ? <>Pagaste <span className="font-bold">{fmt(-diferencia)}</span> más de lo que consumiste — estás bajando saldo de períodos anteriores.</>
+            : <>Consumo y pago cuadran exactamente en el período.</>}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Desglose por tarjeta */}
+        <div>
+          <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">Por tarjeta</p>
+          <div className="space-y-2">
+            {metrics.porTarjeta.map(c => (
+              <div key={c.name} className="flex items-center justify-between gap-2 py-2 border-b border-slate-100/80 dark:border-slate-700/40 last:border-0">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{c.name}</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {c.txCount} consumo{c.txCount !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-bold text-indigo-700 dark:text-indigo-400 whitespace-nowrap">{fmt(c.consumo)}</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                    pagado {fmt(c.pagos)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Consumo vs pago por mes */}
+        <div>
+          <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">Consumo vs pago por mes</p>
+          {series.length > 0 ? (
+            <div className="h-[180px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={series} barSize={14}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" style={{ fontSize: 10 }} />
+                  <YAxis style={{ fontSize: 10 }} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="Consumo" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Pagos"   fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400 py-6 text-center">Sin datos en el período</p>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 /* ── Badge de estado presupuesto ─────────────────────────────── */
 function BudgetStatusBadge({ budget }) {
   const cfg = {
@@ -154,13 +275,36 @@ function BudgetStatusBadge({ budget }) {
 /* ════════════════════════════════════════════════════════════════
    DASHBOARD PRINCIPAL
 ════════════════════════════════════════════════════════════════ */
-export function Dashboard({ transactions, stats, budgetData, categoryColorMap = {}, excludeTransfers = true, onToggleExcludeTransfers }) {
+export function Dashboard({ transactions, budgetData, categoryColorMap = {}, excludeTransfers = true, onToggleExcludeTransfers }) {
   const { settings } = useSettings();
   const { accounts, totals: accountTotals } = useAccounts(transactions);
   const { totals: debtTotals } = useDebts();
   const { goals, summary: goalsSummary } = useGoals();
   const subs = useSubscriptions(transactions);
   const C = settings.currency;
+
+  /* Período seleccionado (mes, últimos N, año completo, personalizado…) */
+  const {
+    periods, selection, setSelection, period,
+    periodTxs, prevTxs: prevPeriodTxs, hasPrev, months, isCurrentMonth: isThisMonth,
+  } = usePeriod(transactions);
+
+  /* Nombres de cuentas tipo tarjeta de crédito */
+  const cardNames = useMemo(
+    () => accounts.filter(a => a.type === 'credit_card').map(a => a.name),
+    [accounts]
+  );
+
+  /* Métricas de tarjeta: se calculan sobre las transacciones SIN filtrar
+     traspasos, porque el pago de tarjeta es precisamente un traspaso. */
+  const cardMetrics = useMemo(
+    () => computeCardMetrics(periodTxs, cardNames),
+    [periodTxs, cardNames]
+  );
+  const cardSeries = useMemo(
+    () => cardMonthlySeries(periodTxs, cardNames).slice(-12),
+    [periodTxs, cardNames]
+  );
 
   const effectiveTxs = useMemo(
     () => excludeTransfers ? transactions.filter(t => !isTransferTx(t)) : transactions,
@@ -169,17 +313,13 @@ export function Dashboard({ transactions, stats, budgetData, categoryColorMap = 
 
   const metrics = useMemo(() => {
     const now = new Date();
-    const currentMonth  = mesLocal(now);
     const dayOfMonth    = now.getDate();
     const daysInMonth   = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const daysLeft      = daysInMonth - dayOfMonth;
 
-    /* Mes anterior */
-    const prevDate  = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const prevMonth = mesLocal(prevDate);
-
-    const monthTxs = effectiveTxs.filter(t => t.Fecha?.startsWith(currentMonth));
-    const prevTxs  = effectiveTxs.filter(t => t.Fecha?.startsWith(prevMonth));
+    const keep = (list) => excludeTransfers ? list.filter(t => !isTransferTx(t)) : list;
+    const monthTxs = keep(periodTxs);
+    const prevTxs  = keep(prevPeriodTxs);
 
     const income   = monthTxs.filter(t => t.Tipo === 'Ingreso' || t.Monto > 0).reduce((a, t) => a + Math.abs(Number(t.Monto)), 0);
     const expenses = monthTxs.filter(t => t.Tipo === 'Gasto'   || t.Monto < 0).reduce((a, t) => a + Math.abs(Number(t.Monto)), 0);
@@ -189,14 +329,17 @@ export function Dashboard({ transactions, stats, budgetData, categoryColorMap = 
     const prevExpenses = prevTxs.filter(t => t.Tipo === 'Gasto'   || t.Monto < 0).reduce((a, t) => a + Math.abs(Number(t.Monto)), 0);
 
     const savingsRate     = income > 0 ? ((income - expenses) / income) * 100 : 0;
-    const dailyAvg        = dayOfMonth > 0 ? expenses / dayOfMonth : 0;
-    const projection      = dayOfMonth > 0 ? (expenses / dayOfMonth) * daysInMonth : 0;
+    // El promedio diario y la proyección solo tienen sentido en el mes en curso;
+    // en períodos largos se usa el promedio mensual.
+    const dailyAvg        = isThisMonth && dayOfMonth > 0 ? expenses / dayOfMonth : 0;
+    const projection      = isThisMonth && dayOfMonth > 0 ? (expenses / dayOfMonth) * daysInMonth : 0;
+    const monthlyAvg      = months > 0 ? expenses / months : expenses;
     const remainingBudget = income - expenses;
 
-    const incomeChange   = prevIncome   > 0 ? ((income   - prevIncome)   / prevIncome)   * 100 : null;
-    const expenseChange  = prevExpenses > 0 ? ((expenses - prevExpenses) / prevExpenses) * 100 : null;
+    const incomeChange   = hasPrev && prevIncome   > 0 ? ((income   - prevIncome)   / prevIncome)   * 100 : null;
+    const expenseChange  = hasPrev && prevExpenses > 0 ? ((expenses - prevExpenses) / prevExpenses) * 100 : null;
 
-    /* Gastos por categoría este mes */
+    /* Gastos por categoría en el período */
     const byCat = monthTxs
       .filter(t => t.Tipo === 'Gasto' || t.Monto < 0)
       .reduce((a, t) => { const c = t.Categoría || 'Otros'; a[c] = (a[c] || 0) + Math.abs(Number(t.Monto)); return a; }, {});
@@ -259,7 +402,7 @@ export function Dashboard({ transactions, stats, budgetData, categoryColorMap = 
       .sort((a, b) => Math.abs(Number(b.Monto)) - Math.abs(Number(a.Monto)))[0];
 
     return {
-      income, expenses, balance, savingsRate, dailyAvg, projection,
+      income, expenses, balance, savingsRate, dailyAvg, projection, monthlyAvg,
       remainingBudget, daysLeft, daysInMonth, dayOfMonth,
       incomeChange, expenseChange, prevIncome, prevExpenses,
       topCategories, accountMonthly,
@@ -267,9 +410,10 @@ export function Dashboard({ transactions, stats, budgetData, categoryColorMap = 
       totalBudgets, goodBudgets, budgetHealth, biggestExpense,
       totalTxCount: monthTxs.length,
     };
-  }, [effectiveTxs, stats, budgetData]);
+  }, [effectiveTxs, periodTxs, prevPeriodTxs, excludeTransfers, isThisMonth, months, hasPrev, budgetData, categoryColorMap]);
 
   const fmt = (n) => fmtMoney(n, C);
+  const scope = isThisMonth ? 'del Mes' : 'del período';
   const upcomingCount = subs.upcomingBills.length;
   const upcomingNext = subs.upcomingBills.slice(0, 5);
   const netWorth = accountTotals.netWorth - debtTotals.totalBalance;
@@ -278,8 +422,11 @@ export function Dashboard({ transactions, stats, budgetData, categoryColorMap = 
   return (
     <div className="space-y-6">
 
-      {/* ── Toggle excluir traspasos ── */}
-      <div className="flex items-center justify-end">
+      {/* ── Filtros: período + excluir traspasos ── */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="glass rounded-full px-3 py-1.5">
+          <PeriodSelector periods={periods} selection={selection} onChange={setSelection} resolved={period} />
+        </div>
         <button onClick={onToggleExcludeTransfers}
           className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-full glass text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors">
           {excludeTransfers
@@ -353,7 +500,7 @@ export function Dashboard({ transactions, stats, budgetData, categoryColorMap = 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KpiCard
           delay={0}
-          title="Balance del Mes"
+          title={`Balance ${scope}`}
           value={fmt(metrics.balance)}
           icon={Wallet}
           iconBg={metrics.balance >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600'}
@@ -361,7 +508,7 @@ export function Dashboard({ transactions, stats, budgetData, categoryColorMap = 
         />
         <KpiCard
           delay={0.05}
-          title="Ingresos del Mes"
+          title={`Ingresos ${scope}`}
           value={fmt(metrics.income)}
           icon={TrendingUp}
           iconBg="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600"
@@ -371,7 +518,7 @@ export function Dashboard({ transactions, stats, budgetData, categoryColorMap = 
         />
         <KpiCard
           delay={0.1}
-          title="Gastos del Mes"
+          title={`Gastos ${scope}`}
           value={fmt(metrics.expenses)}
           icon={TrendingDown}
           iconBg="bg-rose-50 dark:bg-rose-900/30 text-rose-600"
@@ -392,22 +539,45 @@ export function Dashboard({ transactions, stats, budgetData, categoryColorMap = 
 
       {/* ── ROW 2: KPIs secundarios ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard
-          delay={0.2}
-          title="Gasto Diario Promedio"
-          value={fmt(metrics.dailyAvg)}
-          icon={Calendar}
-          iconBg="bg-blue-50 dark:bg-blue-900/30 text-blue-600"
-          sub={`Día ${metrics.dayOfMonth} de ${metrics.daysInMonth}`}
-        />
-        <KpiCard
-          delay={0.25}
-          title="Proyección Mensual"
-          value={fmt(metrics.projection)}
-          icon={BarChart3}
-          iconBg="bg-violet-50 dark:bg-violet-900/30 text-violet-600"
-          sub={`${metrics.daysLeft} días restantes`}
-        />
+        {isThisMonth ? (
+          <>
+            <KpiCard
+              delay={0.2}
+              title="Gasto Diario Promedio"
+              value={fmt(metrics.dailyAvg)}
+              icon={Calendar}
+              iconBg="bg-blue-50 dark:bg-blue-900/30 text-blue-600"
+              sub={`Día ${metrics.dayOfMonth} de ${metrics.daysInMonth}`}
+            />
+            <KpiCard
+              delay={0.25}
+              title="Proyección Mensual"
+              value={fmt(metrics.projection)}
+              icon={BarChart3}
+              iconBg="bg-violet-50 dark:bg-violet-900/30 text-violet-600"
+              sub={`${metrics.daysLeft} días restantes`}
+            />
+          </>
+        ) : (
+          <>
+            <KpiCard
+              delay={0.2}
+              title="Gasto Mensual Prom."
+              value={fmt(metrics.monthlyAvg)}
+              icon={Calendar}
+              iconBg="bg-blue-50 dark:bg-blue-900/30 text-blue-600"
+              sub={`${months} mes${months !== 1 ? 'es' : ''} en el período`}
+            />
+            <KpiCard
+              delay={0.25}
+              title="Ingreso Mensual Prom."
+              value={fmt(months > 0 ? metrics.income / months : metrics.income)}
+              icon={BarChart3}
+              iconBg="bg-violet-50 dark:bg-violet-900/30 text-violet-600"
+              sub={period.label}
+            />
+          </>
+        )}
         <KpiCard
           delay={0.3}
           title="Disponible"
@@ -415,7 +585,7 @@ export function Dashboard({ transactions, stats, budgetData, categoryColorMap = 
           icon={Banknote}
           iconBg="bg-teal-50 dark:bg-teal-900/30 text-teal-600"
           valueClass="text-teal-700 dark:text-teal-400"
-          sub="Ingresos − Gastos del mes"
+          sub={`Ingresos − Gastos ${scope}`}
         />
         <KpiCard
           delay={0.35}
@@ -423,9 +593,20 @@ export function Dashboard({ transactions, stats, budgetData, categoryColorMap = 
           value={metrics.totalTxCount}
           icon={Activity}
           iconBg="bg-slate-100 dark:bg-slate-800 text-slate-600"
-          sub={metrics.biggestExpense ? `Mayor: ${fmt(Math.abs(Number(metrics.biggestExpense.Monto)))}` : 'Este mes'}
+          sub={metrics.biggestExpense ? `Mayor: ${fmt(Math.abs(Number(metrics.biggestExpense.Monto)))}` : period.label}
         />
       </div>
+
+      {/* ── Tarjetas de crédito: consumo vs pago ── */}
+      {cardMetrics.hasCards && (cardMetrics.consumo > 0 || cardMetrics.pagos > 0) && (
+        <CreditCardPanel
+          metrics={cardMetrics}
+          series={cardSeries}
+          totalExpenses={metrics.expenses}
+          currency={C}
+          periodLabel={period.label}
+        />
+      )}
 
       {/* ── ROW 3: Tendencia mensual + Distribución ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

@@ -5,8 +5,10 @@ import {
   Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
 import { TrendingUp, TrendingDown, Target, Calendar, PiggyBank, AlertCircle, Rocket, ToggleLeft, ToggleRight } from 'lucide-react';
-import { cn, fmtMoney, mesLocal, isTransferTx } from '../lib/utils';
+import { cn, fmtMoney, isTransferTx } from '../lib/utils';
 import { useSettings } from '../hooks/useSettings';
+import { usePeriod } from '../hooks/usePeriod';
+import { PeriodSelector } from './PeriodSelector';
 import { SankeyFlow } from './SankeyFlow';
 
 const COLORS = ['#10b981', '#f43f5e', '#3b82f6', '#f59e0b', '#8b5cf6', '#64748b', '#ec4899', '#06b6d4'];
@@ -30,9 +32,18 @@ export function Statistics({ transactions, budgetData = [], categoryColorMap = {
   const { settings } = useSettings();
   const C = settings.currency;
 
+  const {
+    periods, selection, setSelection, period,
+    periodTxs, prevTxs: prevPeriodTxs, hasPrev, months,
+  } = usePeriod(transactions);
+
   const effectiveTxs = useMemo(
-    () => excludeTransfers ? transactions.filter(t => !isTransferTx(t)) : transactions,
-    [transactions, excludeTransfers]
+    () => excludeTransfers ? periodTxs.filter(t => !isTransferTx(t)) : periodTxs,
+    [periodTxs, excludeTransfers]
+  );
+  const effectivePrevTxs = useMemo(
+    () => excludeTransfers ? prevPeriodTxs.filter(t => !isTransferTx(t)) : prevPeriodTxs,
+    [prevPeriodTxs, excludeTransfers]
   );
 
   const stats = useMemo(() => {
@@ -56,7 +67,7 @@ export function Statistics({ transactions, budgetData = [], categoryColorMap = {
 
     const monthlyTrend = Object.values(monthlyData)
       .sort((a, b) => a.month.localeCompare(b.month))
-      .slice(-6) // Últimos 6 meses
+      .slice(-24) // el período ya acota el rango; se limita para no saturar el eje
       .map(d => ({
         month: new Date(d.month + '-01').toLocaleDateString('es', { month: 'short', year: '2-digit' }),
         Ingresos: Number(d.income.toFixed(2)),
@@ -82,39 +93,31 @@ export function Statistics({ transactions, budgetData = [], categoryColorMap = {
         color: categoryColorMap[name] || COLORS[i % COLORS.length],
       }));
 
-    // Comparativa mes actual vs anterior
-    const currentMonth = mesLocal(new Date());
-    const lastMonth = mesLocal(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1));
-
-    const currentMonthData = effectiveTxs.filter(t => t.Fecha?.startsWith(currentMonth));
-    const lastMonthData = effectiveTxs.filter(t => t.Fecha?.startsWith(lastMonth));
-
-    const currentIncome = currentMonthData
+    // Comparativa período actual vs período anterior del mismo largo
+    const sumIncome = (list) => list
       .filter(t => t.Tipo === 'Ingreso' || t.Monto > 0)
       .reduce((acc, t) => acc + Math.abs(Number(t.Monto)), 0);
-    
-    const currentExpenses = currentMonthData
+    const sumExpenses = (list) => list
       .filter(t => t.Tipo === 'Gasto' || t.Monto < 0)
       .reduce((acc, t) => acc + Math.abs(Number(t.Monto)), 0);
 
-    const lastIncome = lastMonthData
-      .filter(t => t.Tipo === 'Ingreso' || t.Monto > 0)
-      .reduce((acc, t) => acc + Math.abs(Number(t.Monto)), 0);
-    
-    const lastExpenses = lastMonthData
-      .filter(t => t.Tipo === 'Gasto' || t.Monto < 0)
-      .reduce((acc, t) => acc + Math.abs(Number(t.Monto)), 0);
+    const currentIncome   = sumIncome(effectiveTxs);
+    const currentExpenses = sumExpenses(effectiveTxs);
+    const lastIncome      = sumIncome(effectivePrevTxs);
+    const lastExpenses    = sumExpenses(effectivePrevTxs);
 
-    const incomeChange = lastIncome > 0 ? ((currentIncome - lastIncome) / lastIncome) * 100 : 0;
-    const expensesChange = lastExpenses > 0 ? ((currentExpenses - lastExpenses) / lastExpenses) * 100 : 0;
+    const incomeChange   = hasPrev && lastIncome   > 0 ? ((currentIncome   - lastIncome)   / lastIncome)   * 100 : 0;
+    const expensesChange = hasPrev && lastExpenses > 0 ? ((currentExpenses - lastExpenses) / lastExpenses) * 100 : 0;
 
     // Métricas adicionales
     const now = new Date();
     const savingsRate = currentIncome > 0 ? ((currentIncome - currentExpenses) / currentIncome) * 100 : 0;
     const dayOfMonth = now.getDate();
-    const avgDailyExpense = currentExpenses / dayOfMonth;
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const projectedExpense = dayOfMonth > 0 ? (currentExpenses / dayOfMonth) * daysInMonth : 0;
+    // Con períodos de varios meses el promedio relevante es el mensual
+    const avgMonthlyExpense = months > 0 ? currentExpenses / months : currentExpenses;
+    const avgDailyExpense = currentExpenses / Math.max(1, months * 30);
+    const projectedExpense = avgMonthlyExpense;
 
     // Análisis semanal (últimas 4 semanas)
     const weeklyData = [];
@@ -149,18 +152,22 @@ export function Statistics({ transactions, budgetData = [], categoryColorMap = {
       metrics: {
         savingsRate,
         avgDailyExpense,
+        avgMonthlyExpense,
         projectedExpense,
         daysInMonth,
         dayOfMonth
       },
       weeklyData
     };
-  }, [effectiveTxs]);
+  }, [effectiveTxs, effectivePrevTxs, hasPrev, months, categoryColorMap]);
 
   return (
     <div className="space-y-6">
-      {/* Toggle excluir traspasos */}
-      <div className="flex items-center justify-end">
+      {/* Filtros: período + excluir traspasos */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="glass rounded-full px-3 py-1.5">
+          <PeriodSelector periods={periods} selection={selection} onChange={setSelection} resolved={period} />
+        </div>
         <button onClick={onToggleExcludeTransfers}
           className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-full glass text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors">
           {excludeTransfers
@@ -182,16 +189,16 @@ export function Statistics({ transactions, budgetData = [], categoryColorMap = {
           trend={stats.metrics.savingsRate > 20 ? 'positive' : stats.metrics.savingsRate > 0 ? 'neutral' : 'negative'}
         />
         <MetricCard
-          title="Gasto Diario Promedio"
-          value={fmtMoney(stats.metrics.avgDailyExpense, C)}
+          title="Gastos del período"
+          value={fmtMoney(stats.comparison.currentExpenses, C)}
           icon={Calendar}
           className="text-blue-600"
         />
         <MetricCard
-          title="Proyección Mensual"
-          value={fmtMoney(stats.metrics.projectedExpense, C)}
+          title="Gasto Mensual Promedio"
+          value={fmtMoney(stats.metrics.avgMonthlyExpense, C)}
           icon={Rocket}
-          trend={stats.metrics.projectedExpense <= stats.comparison.currentExpenses * (stats.metrics.daysInMonth / Math.max(stats.metrics.dayOfMonth, 1)) ? 'positive' : 'neutral'}
+          trend="neutral"
         />
         <MetricCard
           title="Cambio en Ingresos"

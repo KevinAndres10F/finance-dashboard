@@ -9,22 +9,19 @@ import {
 import { cn, fmtMoney, parseMotivos } from '../lib/utils';
 import { useSettings } from '../hooks/useSettings';
 import { useTransactionMeta } from '../hooks/useTransactionMeta';
+import { usePeriod } from '../hooks/usePeriod';
+import { PeriodSelector } from './PeriodSelector';
+import { addMonthsKey, monthsBetween } from '../lib/period';
 import { TransactionEditModal } from './TransactionEditModal';
-
-const MONTHS = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-];
 
 const selectCls = "h-9 px-3 rounded-xl text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-400/50 bg-white/85 dark:bg-slate-800/75 backdrop-blur-sm border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-200";
 
 export function TransactionList({ transactions, categories, categoryNames = [], updateTransaction, deleteTransaction, reviewCount = 0 }) {
   const { settings } = useSettings();
   const txMeta = useTransactionMeta();
-  const now = new Date();
 
-  const [filterYear,     setFilterYear]     = useState(String(now.getFullYear()));
-  const [filterMonth,    setFilterMonth]    = useState(String(now.getMonth() + 1));
+  const { periods, selection, setSelection, period, periodTxs } = usePeriod(transactions);
+
   const [searchTerm,     setSearchTerm]     = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterType,     setFilterType]     = useState('all');
@@ -33,13 +30,6 @@ export function TransactionList({ transactions, categories, categoryNames = [], 
   const [filterRevision,  setFilterRevision]  = useState('all');
   const [showFilters,     setShowFilters]     = useState(false);
   const [editing,         setEditing]         = useState(null);
-
-  const availableYears = useMemo(() => {
-    const years = [...new Set(transactions.map(t => t.Fecha?.slice(0, 4)).filter(Boolean))]
-      .sort((a, b) => b.localeCompare(a));
-    if (!years.includes(String(now.getFullYear()))) years.unshift(String(now.getFullYear()));
-    return years;
-  }, [transactions]);
 
   const allCats = useMemo(() => {
     const fromTxs = transactions.map(t => t.Categoría).filter(Boolean);
@@ -56,17 +46,19 @@ export function TransactionList({ transactions, categories, categoryNames = [], 
     return [...set].sort();
   }, [transactions, txMeta]);
 
-  const indexed = useMemo(() => transactions.map((t, idx) => ({ t, idx, meta: txMeta.get(t, idx) })),
-    [transactions, txMeta]);
+  // El período ya acota las transacciones; los índices se mantienen respecto
+  // a la lista completa para que la metadata local (tags/notas) siga alineada.
+  const indexed = useMemo(() => {
+    const indexById = new Map(transactions.map((t, idx) => [t, idx]));
+    return periodTxs.map(t => {
+      const idx = indexById.get(t) ?? 0;
+      return { t, idx, meta: txMeta.get(t, idx) };
+    });
+  }, [transactions, periodTxs, txMeta]);
 
   const filtered = useMemo(() => {
     return indexed
       .filter(({ t, meta }) => {
-        const fecha = t.Fecha || '';
-        const tYear  = fecha.slice(0, 4);
-        const tMonth = String(parseInt(fecha.slice(5, 7), 10));
-        if (filterYear !== 'all' && tYear !== filterYear) return false;
-        if (filterMonth !== 'all' && tMonth !== filterMonth) return false;
         if (searchTerm) {
           const s = searchTerm.toLowerCase();
           const inText = t.Descripción?.toLowerCase().includes(s) || t.Categoría?.toLowerCase().includes(s);
@@ -84,7 +76,7 @@ export function TransactionList({ transactions, categories, categoryNames = [], 
         return true;
       })
       .sort((a, b) => (b.t.Fecha || '').localeCompare(a.t.Fecha || ''));
-  }, [indexed, filterYear, filterMonth, searchTerm, filterCategory, filterType, filterTag, filterReviewed, filterRevision]);
+  }, [indexed, searchTerm, filterCategory, filterType, filterTag, filterReviewed, filterRevision]);
 
   const periodSummary = useMemo(() => {
     const income   = filtered.filter(({ t }) => t.Tipo === 'Ingreso' || t.Monto > 0)
@@ -94,14 +86,17 @@ export function TransactionList({ transactions, categories, categoryNames = [], 
     return { income, expenses, balance: income - expenses };
   }, [filtered]);
 
-  const navigateMonth = (dir) => {
-    if (filterMonth === 'all' || filterYear === 'all') return;
-    let m = parseInt(filterMonth, 10) + dir;
-    let y = parseInt(filterYear, 10);
-    if (m < 1) { m = 12; y -= 1; }
-    if (m > 12) { m = 1;  y += 1; }
-    setFilterMonth(String(m));
-    setFilterYear(String(y));
+  // Desplaza el período completo hacia atrás/adelante (1 mes → mes anterior,
+  // 3 meses → los 3 anteriores). Solo aplica a períodos acotados.
+  const canNavigate = !!(period.start && period.end);
+  const navigatePeriod = (dir) => {
+    if (!canNavigate) return;
+    const len = monthsBetween(period.start, period.end);
+    setSelection({
+      id: 'custom',
+      start: addMonthsKey(period.start, dir * len),
+      end: addMonthsKey(period.end, dir * len),
+    });
   };
 
   const exportToCSV = () => {
@@ -113,8 +108,8 @@ export function TransactionList({ transactions, categories, categoryNames = [], 
     const csv = [headers, ...rows].map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
     const link = document.createElement('a');
     link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-    const period = filterMonth !== 'all' ? `${MONTHS[parseInt(filterMonth, 10) - 1]}_${filterYear}` : filterYear;
-    link.download = `transacciones_${period}.csv`;
+    const tag = period.start ? `${period.start}_${period.end}` : 'historico';
+    link.download = `transacciones_${tag}.csv`;
     link.click();
   };
 
@@ -125,34 +120,26 @@ export function TransactionList({ transactions, categories, categoryNames = [], 
 
   const hasSecondary = searchTerm || filterCategory !== 'all' || filterType !== 'all'
     || filterTag !== 'all' || filterReviewed !== 'all' || filterRevision !== 'all';
-  const periodLabel = filterMonth !== 'all'
-    ? `${MONTHS[parseInt(filterMonth, 10) - 1]} ${filterYear}`
-    : filterYear === 'all' ? 'Todos los períodos' : `Año ${filterYear}`;
+  const periodLabel = period.label;
 
   return (
     <div className="space-y-4">
       <Card className="p-4">
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <button onClick={() => navigateMonth(-1)}
-              disabled={filterMonth === 'all' || filterYear === 'all'}
+            <button onClick={() => navigatePeriod(-1)}
+              disabled={!canNavigate}
+              aria-label="Período anterior"
               className="h-9 w-9 flex items-center justify-center rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/85 dark:bg-slate-800/75 backdrop-blur-sm text-slate-600 dark:text-slate-400 hover:bg-white/90 dark:hover:bg-slate-700/70 disabled:opacity-30 transition-all">
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className={selectCls}>
-              <option value="all">Todos los meses</option>
-              {MONTHS.map((m, i) => <option key={i} value={String(i + 1)}>{m}</option>)}
-            </select>
-            <select value={filterYear} onChange={e => setFilterYear(e.target.value)} className={selectCls}>
-              <option value="all">Todos los años</option>
-              {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-            <button onClick={() => navigateMonth(1)}
-              disabled={filterMonth === 'all' || filterYear === 'all'}
+            <PeriodSelector periods={periods} selection={selection} onChange={setSelection} resolved={period} />
+            <button onClick={() => navigatePeriod(1)}
+              disabled={!canNavigate}
+              aria-label="Período siguiente"
               className="h-9 w-9 flex items-center justify-center rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/85 dark:bg-slate-800/75 backdrop-blur-sm text-slate-600 dark:text-slate-400 hover:bg-white/90 dark:hover:bg-slate-700/70 disabled:opacity-30 transition-all">
               <ChevronRight className="w-4 h-4" />
             </button>
-            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1 hidden sm:inline">{periodLabel}</span>
             <div className="flex items-center gap-2 ml-auto">
               {reviewCount > 0 && (
                 <Button variant={filterRevision === 'yes' ? 'secondary' : 'outline'} size="sm"

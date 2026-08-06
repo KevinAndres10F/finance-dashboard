@@ -39,7 +39,7 @@ function App() {
   const auth = useDeviceAuth();
   const {
     transactions, loading, error, readOnly: dataReadOnly, addTransaction, updateTransaction,
-    deleteTransaction, importTransactions, stats, categories, reviewCount, refresh
+    deleteTransaction, importTransactions, categories, reviewCount, refresh
   } = useFinanzas();
   const readOnly = !session || dataReadOnly;
 
@@ -225,7 +225,7 @@ function App() {
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.18 }}
           >
-            {activeTab === 'overview' && <Dashboard stats={stats} transactions={transactions} budgetData={budgetData} categoryColorMap={rules.colorMap} excludeTransfers={excludeTransfers} onToggleExcludeTransfers={toggleExcludeTransfers} />}
+            {activeTab === 'overview' && <Dashboard transactions={transactions} budgetData={budgetData} categoryColorMap={rules.colorMap} excludeTransfers={excludeTransfers} onToggleExcludeTransfers={toggleExcludeTransfers} />}
             {activeTab === 'transactions' && (
               <TransactionList
                 transactions={transactions}
