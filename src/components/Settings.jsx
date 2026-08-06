@@ -4,11 +4,12 @@ import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { useSettings } from '../hooks/useSettings';
 import { useCategoryRules } from '../hooks/useCategoryRules';
+import { useSession } from '../hooks/useSession';
 import { fmtMoney, cn } from '../lib/utils';
 import {
   Globe, Palette, Sparkles, Plus, X, Download, Upload,
   AlertTriangle, Trash2, Settings as SettingsIcon, Wand2, Lock, Unlock,
-  Database, ChevronDown, ChevronUp, Info
+  Database, ChevronDown, ChevronUp, Info, UserCircle2, LogOut
 } from 'lucide-react';
 
 const CURRENCIES = [
@@ -23,6 +24,7 @@ const CURRENCIES = [
 
 export function Settings({ transactions, categories, importTransactions }) {
   const { settings, update } = useSettings();
+  const { session, signOut } = useSession();
   const {
     localRules, globalRules, categories: sbCategories, colorMap,
     addRule, removeRule, clearLocalRules, ruleSuggestions, sbError,
@@ -296,6 +298,31 @@ export function Settings({ transactions, categories, importTransactions }) {
               </div>
             ))}
           </div>
+        )}
+      </Card>
+
+      {/* Sesión de Supabase Auth */}
+      <Card className="p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <UserCircle2 className="w-4 h-4 text-indigo-500" />
+          <h3 className="text-lg font-semibold">Sesión</h3>
+        </div>
+        {session ? (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{session.user?.email}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Sesión activa con Supabase Auth</p>
+            </div>
+            <button
+              onClick={signOut}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-700/30 hover:bg-rose-50/80 dark:hover:bg-rose-900/20 transition-colors shrink-0"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Cerrar sesión
+            </button>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500 dark:text-slate-400">Sin sesión activa</p>
         )}
       </Card>
 

@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useSession } from './hooks/useSession';
+import { Login } from './components/Login';
 import { useFinanzas } from './hooks/useFinanzas';
 import { useBudgets } from './hooks/useBudgets';
 import { useDeviceAuth } from './hooks/useDeviceAuth';
@@ -33,11 +35,17 @@ import { cn, fmtMoney } from './lib/utils';
 const EXCLUDE_TRANSFERS_KEY = 'finance-exclude-transfers';
 
 function App() {
+  const { session, loading: sessionLoading, signOut } = useSession();
   const auth = useDeviceAuth();
   const {
-    transactions, loading, error, readOnly, addTransaction, updateTransaction,
-    deleteTransaction, importTransactions, stats, categories, reviewCount
+    transactions, loading, error, readOnly: dataReadOnly, addTransaction, updateTransaction,
+    deleteTransaction, importTransactions, stats, categories, reviewCount, refresh
   } = useFinanzas();
+  const readOnly = !session || dataReadOnly;
+
+  // Recargar datos al iniciar/cerrar sesión (el fetch usa el token de la sesión)
+  const sessionUserId = session?.user?.id ?? null;
+  useEffect(() => { refresh(); }, [sessionUserId, refresh]);
   const { budgetData, budgetsInWarning, budgetsExceeded } = useBudgets(transactions);
   const gamification = useGamification(transactions, budgetData);
   const { settings } = useSettings();
@@ -142,6 +150,19 @@ function App() {
     }
   };
 
+  // Capa 1: sesión de Supabase Auth
+  if (sessionLoading) {
+    return (
+      <div className="app-bg min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-slate-300 dark:border-slate-600 border-t-indigo-500 animate-spin" />
+      </div>
+    );
+  }
+  if (!session) {
+    return <Login />;
+  }
+
+  // Capa 2: bloqueo local con PIN / biometría
   if (settings.authEnabled) {
     if (auth.status === 'setup-required') {
       return (
@@ -178,6 +199,8 @@ function App() {
         onToggleDarkMode={() => setDarkMode(!darkMode)}
         authEnabled={settings.authEnabled}
         onLock={auth.lock}
+        onLogout={signOut}
+        userEmail={session?.user?.email}
         onNewTransaction={readOnly ? undefined : () => setIsModalOpen(true)}
         drawerOpen={drawerOpen}
         onDrawerToggle={setDrawerOpen}
