@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
-import { fechaLocal, isTransferTx } from '../lib/utils';
+import { fechaLocal } from '../lib/utils';
+import { isInternalMovement } from '../lib/cards';
 
 const KEY = 'finance-subscriptions';
 const IGNORED_KEY = 'finance-subscriptions-ignored';
@@ -14,7 +15,7 @@ function save(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
  * Heurística: misma descripción + monto similar (±5%) repetido en al menos 2 meses distintos.
  * Se permite añadir manualmente y marcar/descartar suscripciones detectadas.
  */
-export function useSubscriptions(transactions = []) {
+export function useSubscriptions(transactions = [], cardNames = []) {
   const [manual, setManual]   = useState(() => load(KEY, []));
   const [ignored, setIgnored] = useState(() => load(IGNORED_KEY, []));
 
@@ -23,7 +24,8 @@ export function useSubscriptions(transactions = []) {
     for (const t of transactions) {
       const isExpense = t.Tipo === 'Gasto' || Number(t.Monto) < 0;
       if (!isExpense) continue;
-      if (isTransferTx(t)) continue;
+      // Un pago de tarjeta es recurrente pero no es una suscripcion
+      if (isInternalMovement(t, cardNames)) continue;
       const desc = String(t.Descripción || '').trim().toLowerCase();
       if (!desc) continue;
       if (!groups[desc]) groups[desc] = [];
@@ -64,7 +66,7 @@ export function useSubscriptions(transactions = []) {
       });
     }
     return items.sort((a, b) => b.amount - a.amount);
-  }, [transactions, ignored]);
+  }, [transactions, ignored, cardNames]);
 
   const all = useMemo(() => {
     const m = manual.map(s => ({ ...s, source: 'manual' }));

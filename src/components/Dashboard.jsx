@@ -8,7 +8,7 @@ import { useGoals } from '../hooks/useGoals';
 import { useSubscriptions } from '../hooks/useSubscriptions';
 import { usePeriod } from '../hooks/usePeriod';
 import { PeriodSelector } from './PeriodSelector';
-import { computeCardMetrics, cardMonthlySeries } from '../lib/cards';
+import { computeCardMetrics, cardMonthlySeries, isInternalMovement } from '../lib/cards';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
@@ -168,8 +168,11 @@ function CreditCardPanel({ metrics, series, totalExpenses, currency, periodLabel
       </div>
       <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 flex items-start gap-1.5">
         <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-        El consumo con tarjeta ya está contado en Gastos. El pago de la tarjeta es un traspaso
-        que liquida esos consumos, por eso no se suma de nuevo.
+        <span>
+          <span className="font-semibold text-slate-600 dark:text-slate-300">Gastos = gasto directo + consumo con tarjeta.</span>{' '}
+          El pago de la tarjeta queda fuera: liquida consumos que ya se contaron cuando los hiciste,
+          así que sumarlo duplicaría el dinero.
+        </span>
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
@@ -187,8 +190,8 @@ function CreditCardPanel({ metrics, series, totalExpenses, currency, periodLabel
           <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Pago de tarjetas</p>
           <p className="text-xl font-bold text-slate-800 dark:text-slate-200 break-words">{fmt(metrics.pagos)}</p>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-            traspaso · no cuenta como gasto
-            {metrics.pagosSinConfirmar > 0 && ` · ${fmt(metrics.pagosSinConfirmar)} sin confirmar`}
+            excluido de Gastos · no duplica
+            {metrics.pagosSinConfirmar > 0 && ` · ${fmt(metrics.pagosSinConfirmar)} inferido`}
           </p>
         </div>
 
@@ -201,6 +204,16 @@ function CreditCardPanel({ metrics, series, totalExpenses, currency, periodLabel
           </p>
         </div>
       </div>
+
+      {/* Pagos detectados que la BD no marco como traspaso */}
+      {metrics.pagosSinMarcarCount > 0 && (
+        <div onClick={() => onDrill?.('Pagos de tarjeta sin marcar como traspaso', metrics.sinMarcarTxs)}
+          className="text-xs rounded-xl px-3 py-2 mb-3 border bg-amber-50/70 dark:bg-amber-900/20 border-amber-200/60 dark:border-amber-700/30 text-amber-700 dark:text-amber-400 cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors">
+          <span className="font-semibold">{metrics.pagosSinMarcarCount} pago{metrics.pagosSinMarcarCount !== 1 ? 's' : ''} de tarjeta</span>{' '}
+          por {fmt(metrics.pagosSinMarcar)} no está{metrics.pagosSinMarcarCount !== 1 ? 'n' : ''} marcado{metrics.pagosSinMarcarCount !== 1 ? 's' : ''} como traspaso
+          en la base. Ya se excluyen de Gastos aquí, pero conviene marcarlos en el origen. Toca para verlos.
+        </div>
+      )}
 
       {/* Consumo pendiente de pagar en el período */}
       <div className={cn('text-xs rounded-xl px-3 py-2 mb-4 border',
@@ -295,21 +308,23 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
   const { settings } = useSettings();
   const { accounts, totals: accountTotals } = useAccounts(transactions);
   const { totals: debtTotals } = useDebts();
-  const { goals, summary: goalsSummary } = useGoals();
-  const subs = useSubscriptions(transactions);
+  const { summary: goalsSummary } = useGoals();
   const C = settings.currency;
+
+  /* Nombres de cuentas tipo tarjeta de crédito — se necesitan antes que
+     cualquier cálculo, para reconocer los pagos de tarjeta */
+  const cardNames = useMemo(
+    () => accounts.filter(a => a.type === 'credit_card').map(a => a.name),
+    [accounts]
+  );
+
+  const subs = useSubscriptions(transactions, cardNames);
 
   /* Período seleccionado (mes, últimos N, año completo, personalizado…) */
   const {
     periods, selection, setSelection, period,
     periodTxs, prevTxs: prevPeriodTxs, hasPrev, months, isCurrentMonth: isThisMonth,
   } = usePeriod(transactions);
-
-  /* Nombres de cuentas tipo tarjeta de crédito */
-  const cardNames = useMemo(
-    () => accounts.filter(a => a.type === 'credit_card').map(a => a.name),
-    [accounts]
-  );
 
   /* Métricas de tarjeta: se calculan sobre las transacciones SIN filtrar
      traspasos, porque el pago de tarjeta es precisamente un traspaso. */
@@ -322,9 +337,11 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
     [periodTxs, cardNames]
   );
 
+  // Los pagos de tarjeta se excluyen junto con los traspasos: el consumo ya
+  // se conto cuando se hizo, sumar el pago duplicaria el dinero.
   const effectiveTxs = useMemo(
-    () => excludeTransfers ? transactions.filter(t => !isTransferTx(t)) : transactions,
-    [transactions, excludeTransfers]
+    () => excludeTransfers ? transactions.filter(t => !isInternalMovement(t, cardNames)) : transactions,
+    [transactions, excludeTransfers, cardNames]
   );
 
   const metrics = useMemo(() => {
@@ -333,7 +350,7 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
     const daysInMonth   = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const daysLeft      = daysInMonth - dayOfMonth;
 
-    const keep = (list) => excludeTransfers ? list.filter(t => !isTransferTx(t)) : list;
+    const keep = (list) => excludeTransfers ? list.filter(t => !isInternalMovement(t, cardNames)) : list;
     const monthTxs = keep(periodTxs);
     const prevTxs  = keep(prevPeriodTxs);
 
@@ -439,7 +456,7 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
       totalBudgets, goodBudgets, budgetHealth, biggestExpense,
       totalTxCount: monthTxs.length,
     };
-  }, [effectiveTxs, periodTxs, prevPeriodTxs, excludeTransfers, isThisMonth, months, hasPrev, budgetData, categoryColorMap]);
+  }, [effectiveTxs, periodTxs, prevPeriodTxs, excludeTransfers, cardNames, isThisMonth, months, hasPrev, budgetData, categoryColorMap]);
 
   const fmt = (n) => fmtMoney(n, C);
   const scope = isThisMonth ? 'del Mes' : 'del período';
@@ -466,7 +483,7 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
           {excludeTransfers
             ? <ToggleRight className="w-5 h-5 text-indigo-500 shrink-0" />
             : <ToggleLeft className="w-5 h-5 text-slate-400 shrink-0" />}
-          Excluir traspasos entre cuentas
+          Excluir traspasos y pagos de tarjeta
         </button>
       </div>
 

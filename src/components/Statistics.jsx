@@ -5,7 +5,9 @@ import {
   Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
 import { TrendingUp, TrendingDown, Target, Calendar, PiggyBank, AlertCircle, Rocket, ToggleLeft, ToggleRight } from 'lucide-react';
-import { cn, fmtMoney, isTransferTx } from '../lib/utils';
+import { cn, fmtMoney } from '../lib/utils';
+import { isInternalMovement } from '../lib/cards';
+import { useCardNames } from '../hooks/useCardNames';
 import { useSettings } from '../hooks/useSettings';
 import { usePeriod } from '../hooks/usePeriod';
 import { PeriodSelector } from './PeriodSelector';
@@ -37,13 +39,17 @@ export function Statistics({ transactions, budgetData = [], categoryColorMap = {
     periodTxs, prevTxs: prevPeriodTxs, hasPrev, months,
   } = usePeriod(transactions);
 
+  const cardNames = useCardNames(transactions);
+
+  // Se excluyen traspasos y pagos de tarjeta: el consumo con tarjeta ya esta
+  // contado, sumar el pago duplicaria el dinero.
   const effectiveTxs = useMemo(
-    () => excludeTransfers ? periodTxs.filter(t => !isTransferTx(t)) : periodTxs,
-    [periodTxs, excludeTransfers]
+    () => excludeTransfers ? periodTxs.filter(t => !isInternalMovement(t, cardNames)) : periodTxs,
+    [periodTxs, excludeTransfers, cardNames]
   );
   const effectivePrevTxs = useMemo(
-    () => excludeTransfers ? prevPeriodTxs.filter(t => !isTransferTx(t)) : prevPeriodTxs,
-    [prevPeriodTxs, excludeTransfers]
+    () => excludeTransfers ? prevPeriodTxs.filter(t => !isInternalMovement(t, cardNames)) : prevPeriodTxs,
+    [prevPeriodTxs, excludeTransfers, cardNames]
   );
 
   const stats = useMemo(() => {
@@ -173,7 +179,7 @@ export function Statistics({ transactions, budgetData = [], categoryColorMap = {
           {excludeTransfers
             ? <ToggleRight className="w-5 h-5 text-indigo-500 shrink-0" />
             : <ToggleLeft className="w-5 h-5 text-slate-400 shrink-0" />}
-          Excluir traspasos entre cuentas
+          Excluir traspasos y pagos de tarjeta
         </button>
       </div>
 

@@ -3,6 +3,7 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { useSubscriptions } from '../hooks/useSubscriptions';
+import { useCardNames } from '../hooks/useCardNames';
 import { useSettings } from '../hooks/useSettings';
 import { fmtMoney, cn, fmtDate } from '../lib/utils';
 import {
@@ -11,7 +12,8 @@ import {
 } from 'lucide-react';
 
 export function Subscriptions({ transactions }) {
-  const subs = useSubscriptions(transactions);
+  const cardNames = useCardNames(transactions);
+  const subs = useSubscriptions(transactions, cardNames);
   const { settings } = useSettings();
   const [view, setView] = useState('list'); // list | calendar | ignored
   const [isModalOpen, setIsModalOpen] = useState(false);

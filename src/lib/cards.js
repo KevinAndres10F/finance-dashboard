@@ -4,14 +4,17 @@ import { isTransferTx } from './utils';
  * Modelo contable de tarjetas de crédito
  * ──────────────────────────────────────
  * · Consumo con tarjeta: el gasto real, ya incluido en "Gastos".
- * · Pago de tarjeta: traspaso desde una cuenta bancaria hacia la tarjeta.
- *   NO es un gasto nuevo — liquida consumos que ya se contaron. Contarlo
- *   como gasto duplicaría el dinero.
+ * · Pago de tarjeta: dinero que sale del banco hacia la tarjeta. NO es un
+ *   gasto nuevo — liquida consumos que ya se contaron cuando se hicieron.
+ *   Sumarlo a Gastos duplicaría el dinero.
  *
- * Por eso el pago se reporta aparte y nunca se suma a Gastos.
+ * IMPORTANTE: la detección no puede depender solo de es_traspaso. En la BD
+ * hay pagos de tarjeta sin esa marca; si se tratan como gasto corriente se
+ * duplican contra su consumo. Por eso se reconocen también por contraparte,
+ * por texto explícito y por categoría Transferencias + nombre de tarjeta.
  */
 
-const PAYMENT_HINTS = ['pago de tarjeta', 'pago tarjeta', 'pago tc'];
+const PAYMENT_HINTS = ['pago de tarjeta', 'pago tarjeta', 'pago tc', 'pago tarj'];
 
 function txText(tx) {
   return `${tx.Descripción || ''} ${tx.Comercio || ''} ${tx.revision_motivo || ''}`.toLowerCase();
@@ -23,10 +26,44 @@ function cardFromText(tx, cardNames) {
   return cardNames.find(name => name && text.includes(name.toLowerCase())) || null;
 }
 
-/** ¿El texto sugiere que es un pago de tarjeta? (traspasos de una sola pata) */
-function looksLikeCardPayment(tx, cardNames) {
+function hasPaymentHint(tx) {
   const text = txText(tx);
-  return PAYMENT_HINTS.some(h => text.includes(h)) || !!cardFromText(tx, cardNames);
+  return PAYMENT_HINTS.some(h => text.includes(h));
+}
+
+/**
+ * ¿Esta transacción es el pago de una tarjeta de crédito?
+ * Funciona con o sin la marca es_traspaso.
+ */
+export function isCardPaymentTx(tx, cardNames = []) {
+  if (!cardNames.length) return false;
+  const cards = new Set(cardNames);
+  const monto = Number(tx.Monto) || 0;
+
+  // En la propia tarjeta: solo el abono que entra es un pago.
+  // Un cargo hecho CON la tarjeta es consumo, nunca pago.
+  if (cards.has(tx.Cuenta)) return monto > 0;
+
+  // Desde una cuenta que no es tarjeta, solo cuentan las salidas
+  if (monto >= 0) return false;
+
+  // 1. Contraparte explícita: la señal más fiable
+  if (tx.traspaso_contraparte && cards.has(tx.traspaso_contraparte)) return true;
+  // 2. Texto inequívoco ("pago de tarjeta …")
+  if (hasPaymentHint(tx)) return true;
+  // 3. Movimiento interno declarado + el texto nombra una tarjeta
+  if ((tx.es_traspaso || tx.Categoría === 'Transferencias') && cardFromText(tx, cardNames)) return true;
+
+  return false;
+}
+
+/**
+ * Movimientos que no son gasto ni ingreso real: traspasos entre cuentas
+ * propias y pagos de tarjeta. Es el filtro que usan Gastos, Ingresos y
+ * Top Categorías para no duplicar dinero.
+ */
+export function isInternalMovement(tx, cardNames = []) {
+  return isTransferTx(tx) || isCardPaymentTx(tx, cardNames);
 }
 
 /**
@@ -46,40 +83,39 @@ export function classifyCardTransactions(transactions = [], cardNames = []) {
   const pagoTxs = [];
   const directoTxs = [];
   const sinConfirmarTxs = [];
+  const sinMarcarTxs = [];
   const seen = new Set();
 
   for (const t of transactions) {
     const monto = Number(t.Monto) || 0;
     const isCardAccount = cards.has(t.Cuenta);
+    const contraparte = t.traspaso_contraparte;
 
-    if (isTransferTx(t)) {
-      const contraparte = t.traspaso_contraparte;
-      // Pata que sale del banco hacia una tarjeta, o pata que entra a la tarjeta
-      const definite = (isCardAccount && monto > 0)
-        || (!isCardAccount && monto < 0 && contraparte && cards.has(contraparte));
-      // Traspaso de una sola pata (el banco no notifica el ingreso):
-      // se reconoce por el texto de la transacción
-      const probable = !definite && !isCardAccount && monto < 0 && !contraparte
-        && looksLikeCardPayment(t, cardNames);
+    // 1. Pago de tarjeta — se detecta con o sin la marca es_traspaso
+    if (isCardPaymentTx(t, cardNames)) {
+      // Los dos lados de un mismo pago comparten traspaso_id: contar una vez
+      const key = t.traspaso_id ? `p:${t.traspaso_id}` : `s:${t.id}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        pagoTxs.push(t);
+        // Sin contraparte explícita la atribución sale del texto: es inferida
+        const hasExplicitTarget = isCardAccount || (contraparte && cards.has(contraparte));
+        if (!hasExplicitTarget) sinConfirmarTxs.push(t);
+        // Pagos que la BD no marcó como traspaso: son los que se duplicaban
+        if (!t.es_traspaso) sinMarcarTxs.push(t);
 
-      if (definite || probable) {
-        // Los dos lados de un mismo traspaso comparten traspaso_id: contar una vez
-        const key = t.traspaso_id ? `p:${t.traspaso_id}` : `s:${t.id}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          pagoTxs.push(t);
-          if (probable) sinConfirmarTxs.push(t);
-          // Sin contraparte se intenta identificar la tarjeta por el texto
-          const target = isCardAccount
-            ? t.Cuenta
-            : (contraparte || cardFromText(t, cardNames) || 'Sin identificar');
-          ensure(target).pagoTxs.push(t);
-        }
+        const target = isCardAccount
+          ? t.Cuenta
+          : (contraparte && cards.has(contraparte) ? contraparte : (cardFromText(t, cardNames) || 'Sin identificar'));
+        ensure(target).pagoTxs.push(t);
       }
-      // Un traspaso nunca es consumo
       continue;
     }
 
+    // 2. Los demás traspasos (entre cuentas propias) no son gasto ni consumo
+    if (isTransferTx(t)) continue;
+
+    // 3. Gasto real: con tarjeta o directo
     if (monto < 0 || t.Tipo === 'Gasto') {
       if (isCardAccount) {
         consumoTxs.push(t);
@@ -90,7 +126,7 @@ export function classifyCardTransactions(transactions = [], cardNames = []) {
     }
   }
 
-  return { consumoTxs, pagoTxs, directoTxs, sinConfirmarTxs, porTarjeta };
+  return { consumoTxs, pagoTxs, directoTxs, sinConfirmarTxs, sinMarcarTxs, porTarjeta };
 }
 
 const sumAbs = (txs) => txs.reduce((a, t) => a + Math.abs(Number(t.Monto) || 0), 0);
@@ -102,10 +138,13 @@ export function computeCardMetrics(transactions = [], cardNames = []) {
     consumo: sumAbs(c.consumoTxs),
     pagos: sumAbs(c.pagoTxs),
     pagosSinConfirmar: sumAbs(c.sinConfirmarTxs),
+    pagosSinMarcar: sumAbs(c.sinMarcarTxs),
+    pagosSinMarcarCount: c.sinMarcarTxs.length,
     gastoDirecto: sumAbs(c.directoTxs),
     consumoTxs: c.consumoTxs,
     pagoTxs: c.pagoTxs,
     directoTxs: c.directoTxs,
+    sinMarcarTxs: c.sinMarcarTxs,
     porTarjeta: Object.values(c.porTarjeta)
       .map(e => ({
         name: e.name,
