@@ -215,6 +215,13 @@ function App() {
             </div>
           </div>
         )}
+        {error && (
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+            <div className="flex items-center gap-2 text-xs font-medium text-rose-700 dark:text-rose-400 bg-rose-50/80 dark:bg-rose-900/20 border border-rose-200/60 dark:border-rose-700/30 rounded-xl px-3 py-2">
+              ⚠ {error}
+            </div>
+          </div>
+        )}
 
         <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 pb-24 md:pb-12 space-y-6">
           <AnimatePresence mode="wait">
@@ -238,7 +245,7 @@ function App() {
             )}
             {activeTab === 'statistics' && <Statistics transactions={transactions} budgetData={budgetData} categoryColorMap={rules.colorMap} excludeTransfers={excludeTransfers} onToggleExcludeTransfers={toggleExcludeTransfers} />}
             {activeTab === 'budgets' && <Budgets transactions={transactions} categories={categories} />}
-            {activeTab === 'wealth' && <WealthHub />}
+            {activeTab === 'wealth' && <WealthHub transactions={transactions} />}
             {activeTab === 'goals' && <Goals />}
             {activeTab === 'subscriptions' && <Subscriptions transactions={transactions} />}
             {activeTab === 'gamification' && (

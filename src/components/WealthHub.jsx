@@ -4,7 +4,7 @@ import { Debts } from './Debts';
 import { cn } from '../lib/utils';
 import { Wallet, CreditCard } from 'lucide-react';
 
-export function WealthHub() {
+export function WealthHub({ transactions = [] }) {
   const [view, setView] = useState('networth');
   return (
     <div className="space-y-4">
@@ -22,7 +22,7 @@ export function WealthHub() {
           </button>
         ))}
       </div>
-      {view === 'networth' && <NetWorth />}
+      {view === 'networth' && <NetWorth transactions={transactions} />}
       {view === 'debts' && <Debts />}
     </div>
   );

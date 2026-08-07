@@ -87,7 +87,7 @@ export function useFinanzas() {
       origen: 'Web Manual',
     }]);
     if (err) {
-      if (isAuthError(err)) { setReadOnly(true); setError('Modo solo lectura — requiere Supabase Auth'); return { success: false, error: 'Modo solo lectura — requiere Supabase Auth' }; }
+      if (isAuthError(err)) { setReadOnly(true); setError('Sin permisos de escritura en la base de datos — el cambio no se guardó'); return { success: false, error: 'Sin permisos de escritura en la base de datos' }; }
       setError(err.message); return { success: false, error: err.message };
     }
     await cargar();
@@ -107,7 +107,7 @@ export function useFinanzas() {
     if (Object.keys(mapped).length === 0) return;
     const { error: err } = await supabase.from(TABLE).update(mapped).eq('id', id);
     if (err) {
-      if (isAuthError(err)) { setReadOnly(true); setError('Modo solo lectura — requiere Supabase Auth'); return; }
+      if (isAuthError(err)) { setReadOnly(true); setError('Sin permisos de escritura en la base de datos — el cambio no se guardó'); return; }
       setError(err.message); return;
     }
     await cargar();
@@ -120,7 +120,7 @@ export function useFinanzas() {
       .update({ activo: false, excluido_motivo: 'Eliminada desde la web' })
       .eq('id', id);
     if (err) {
-      if (isAuthError(err)) { setReadOnly(true); setError('Modo solo lectura — requiere Supabase Auth'); return; }
+      if (isAuthError(err)) { setReadOnly(true); setError('Sin permisos de escritura en la base de datos — el cambio no se guardó'); return; }
       setError(err.message); return;
     }
     await cargar();

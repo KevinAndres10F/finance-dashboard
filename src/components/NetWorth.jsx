@@ -24,8 +24,8 @@ const ICON_MAP = {
 const ASSET_COLORS = ['#10b981', '#06b6d4', '#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#84cc16', '#64748b'];
 const LIAB_COLORS  = ['#f43f5e', '#e11d48', '#fb7185', '#fda4af', '#9f1239'];
 
-export function NetWorth() {
-  const { accounts, addAccount, updateAccount, removeAccount, totals, history } = useAccounts();
+export function NetWorth({ transactions = [] }) {
+  const { accounts, addAccount, updateAccount, removeAccount, totals, history, writeError } = useAccounts(transactions);
   const { totals: debtTotals } = useDebts();
   const { settings } = useSettings();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -72,6 +72,12 @@ export function NetWorth() {
           <Plus className="w-4 h-4" /> Nueva cuenta
         </Button>
       </div>
+
+      {writeError && (
+        <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/30 rounded-xl px-3 py-2">
+          ⚠ {writeError}
+        </div>
+      )}
 
       {/* KPIs principales */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -212,10 +218,12 @@ export function NetWorth() {
       {isModalOpen && (
         <AccountModal
           editing={editing}
+          movementsByName={Object.fromEntries(accounts.map(a => [a.name, a.movements || 0]))}
+          currency={settings.currency}
           onClose={() => { setIsModalOpen(false); setEditing(null); }}
-          onSave={(data) => {
-            if (editing) updateAccount(editing.id, data);
-            else addAccount(data);
+          onSave={async (data) => {
+            if (editing) await updateAccount(editing.id, data);
+            else await addAccount(data);
             setIsModalOpen(false); setEditing(null);
           }}
         />
@@ -254,9 +262,18 @@ function AccountList({ title, accounts, colors, onEdit, onRemove, onToggle, curr
                     {meta?.label} {a.institution && `· ${a.institution}`}
                   </p>
                 </div>
-                <span className="font-semibold text-slate-900 dark:text-white text-sm shrink-0">
-                  {fmtMoney(a.balance, currency)}
-                </span>
+                <div className="text-right shrink-0">
+                  <span className={cn('font-semibold text-sm block',
+                    a.kind === 'liability'
+                      ? (a.debt > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400')
+                      : 'text-slate-900 dark:text-white'
+                  )}>
+                    {a.kind === 'liability' ? fmtMoney(-a.debt, currency) : fmtMoney(a.balance, currency)}
+                  </span>
+                  {!a.hasSaldoInicial && (
+                    <span className="text-[10px] text-amber-500 dark:text-amber-400">falta saldo inicial</span>
+                  )}
+                </div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button onClick={() => onToggle(a)} title={a.includeInNetWorth ? 'Excluir del NW' : 'Incluir en NW'}
                     className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
@@ -278,22 +295,52 @@ function AccountList({ title, accounts, colors, onEdit, onRemove, onToggle, curr
   );
 }
 
-function AccountModal({ editing, onClose, onSave }) {
-  const [form, setForm] = useState(editing || {
-    name: '', type: 'checking', balance: '', institution: '', includeInNetWorth: true,
-  });
+function AccountModal({ editing, movementsByName = {}, currency = 'USD', onClose, onSave }) {
+  const [form, setForm] = useState(() => editing
+    ? { name: editing.name, type: editing.type, institution: editing.institution || '', includeInNetWorth: editing.includeInNetWorth ?? true }
+    : { name: '', type: 'checking', institution: '', includeInNetWorth: true });
+  // 'inicial': el usuario escribe el saldo inicial directamente
+  // 'actual':  el usuario escribe el saldo de hoy y se despeja el inicial
+  const [balanceMode, setBalanceMode] = useState('inicial');
+  const [amount, setAmount] = useState(() => editing ? String(editing.saldoInicial ?? '') : '');
+
+  const movements = editing ? (editing.movements || 0) : (movementsByName[form.name] || 0);
+  const amountNum = Number(amount) || 0;
+  const saldoInicial = balanceMode === 'actual' ? amountNum - movements : amountNum;
+  const saldoCalculado = saldoInicial + movements;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave({
+      name: form.name,
+      type: form.type,
+      saldoInicial,
+      institution: form.institution,
+      includeInNetWorth: form.includeInNetWorth,
+    });
+  };
+
+  const modeBtn = (mode, label) => (
+    <button type="button" onClick={() => setBalanceMode(mode)}
+      className={cn('flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors border',
+        balanceMode === mode
+          ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-700/40 text-indigo-700 dark:text-indigo-400'
+          : 'bg-white/85 dark:bg-slate-800/75 border-slate-200/80 dark:border-white/10 text-slate-600 dark:text-slate-300'
+      )}>
+      {label}
+    </button>
+  );
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="glass w-full max-w-md rounded-2xl overflow-hidden">
+      <div className="glass w-full max-w-md rounded-2xl overflow-hidden max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-white/30 dark:border-white/10">
           <h3 className="text-lg font-semibold">{editing ? 'Editar cuenta' : 'Nueva cuenta'}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-100">
             <X className="w-5 h-5" />
           </button>
         </div>
-        <form onSubmit={(e) => { e.preventDefault(); onSave({ ...form, balance: Number(form.balance) || 0 }); }}
-              className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <Field label="Nombre">
             <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required placeholder="Ej: Cuenta Santander" />
           </Field>
@@ -308,9 +355,27 @@ function AccountModal({ editing, onClose, onSave }) {
               </optgroup>
             </select>
           </Field>
-          <Field label="Balance actual">
-            <Input type="number" step="0.01" value={form.balance} onChange={e => setForm({ ...form, balance: e.target.value })} required />
-          </Field>
+
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              {modeBtn('inicial', 'Sé el saldo inicial')}
+              {modeBtn('actual', 'Tengo el saldo de hoy')}
+            </div>
+            <Field label={balanceMode === 'actual' ? 'Saldo de hoy' : 'Saldo inicial'}>
+              <Input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} required />
+            </Field>
+            <p className="text-xs text-slate-500 dark:text-slate-400 px-1">
+              {balanceMode === 'actual'
+                ? <>Se guardará saldo inicial = saldo de hoy − movimientos: <span className="font-semibold">{fmtMoney(saldoInicial, currency)}</span></>
+                : null}
+            </p>
+            {/* Desglose siempre visible */}
+            <div className="text-xs rounded-xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/60 dark:border-white/10 px-3 py-2 text-slate-600 dark:text-slate-300">
+              {fmtMoney(saldoInicial, currency)} inicial {movements >= 0 ? '+' : '−'} {fmtMoney(Math.abs(movements), currency)} movimientos
+              = <span className="font-bold text-slate-900 dark:text-white">{fmtMoney(saldoCalculado, currency)}</span> saldo calculado
+            </div>
+          </div>
+
           <Field label="Institución (opcional)">
             <Input value={form.institution} onChange={e => setForm({ ...form, institution: e.target.value })} placeholder="Ej: Banco Galicia" />
           </Field>

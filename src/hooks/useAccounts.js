@@ -28,6 +28,28 @@ const TIPO_CUENTA_MAP = {
   inversion: 'investment',
 };
 
+// Inverso: tipo del frontend → valor de tipo_cuenta en la BD.
+// Tipos sin equivalente en español se guardan con su id tal cual
+// (el mapeo de lectura ya acepta ids que existen en ACCOUNT_TYPES).
+const REVERSE_TIPO_MAP = {
+  checking: 'corriente',
+  savings: 'ahorros',
+  credit_card: 'tarjeta_credito',
+  cash: 'efectivo',
+  investment: 'inversion',
+};
+
+function toDbTipo(frontType) {
+  return REVERSE_TIPO_MAP[frontType] || frontType;
+}
+
+function isWritePermissionError(err) {
+  if (!err) return false;
+  const code = String(err.code || '');
+  const msg = err.message || '';
+  return code === '42501' || msg.includes('permission denied') || isAuthError(err);
+}
+
 const CREDIT_CARD_PATTERNS = ['tc', 'tarjeta', 'diners', 'visa', 'mastercard', 'amex'];
 
 function inferAccountType(name) {
@@ -51,31 +73,40 @@ function loadHistory() {
 }
 function saveHistory(h) { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); }
 
+const CUENTAS_TABLE = 'finanzas_personales_cuentas';
+
 export function useAccounts(transactions = []) {
   const [sbAccounts, setSbAccounts] = useState([]);
   const [sbError, setSbError]       = useState(null);
+  const [writeError, setWriteError] = useState(null);
   const [localAccounts, setLocalAccounts] = useState(loadLocal);
   const [history, setHistory]       = useState(loadHistory);
 
-  useEffect(() => {
+  const fetchSbAccounts = useCallback(async () => {
     if (!supabase) return;
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from('finanzas_personales_cuentas')
-        .select('*');
-      if (cancelled) return;
-      if (error) {
-        if (isAuthError(error)) {
-          setSbError('sin permisos de lectura en cuentas');
-        } else {
-          setSbError(error.message);
-        }
-        return;
+    const { data, error } = await supabase
+      .from(CUENTAS_TABLE)
+      .select('*');
+    if (error) {
+      if (isAuthError(error)) {
+        setSbError('sin permisos de lectura en cuentas');
+      } else {
+        setSbError(error.message);
       }
-      setSbAccounts(data || []);
-    })();
-    return () => { cancelled = true; };
+      return;
+    }
+    // activa=false son cuentas eliminadas (soft-delete); null cuenta como activa
+    setSbAccounts((data || []).filter(a => a.activa !== false));
+  }, []);
+
+  useEffect(() => { fetchSbAccounts(); }, [fetchSbAccounts]);
+
+  const handleWriteError = useCallback((err) => {
+    if (isWritePermissionError(err)) {
+      setWriteError('Sin permisos de escritura en la base de datos — los cambios no se guardaron');
+    } else {
+      setWriteError(err.message || 'Error al guardar');
+    }
   }, []);
 
   const accounts = useMemo(() => {
@@ -106,15 +137,20 @@ export function useAccounts(transactions = []) {
       const movements = movementsByAccount[name] || 0;
       const balance = saldoInicial + movements;
       const hasSaldoInicial = sb ? saldoInicial !== 0 : false;
+      // Deuda real de pasivos: -(saldo_inicial + movimientos), nunca negativa.
+      // Math.abs(movimientos acumulados) inventaría deuda con el gasto histórico.
+      const debt = kind === 'liability' ? Math.max(0, -balance) : 0;
 
       merged.push({
         id: sb?.id || `derived:${name}`,
+        isSupabase: !!sb,
         name,
         type: tipoCuenta,
         kind,
         saldoInicial,
         movements,
         balance,
+        debt,
         hasSaldoInicial,
         includeInNetWorth: sb?.incluir_patrimonio ?? true,
         institution: sb?.institucion || '',
@@ -125,12 +161,16 @@ export function useAccounts(transactions = []) {
     const derivedNames = new Set(merged.map(a => a.name));
     for (const la of localAccounts) {
       if (!derivedNames.has(la.name)) {
+        const kind = ACCOUNT_TYPES.find(t => t.id === la.type)?.kind || 'asset';
+        const balance = Number(la.balance || 0) + (movementsByAccount[la.name] || 0);
         merged.push({
           ...la,
-          kind: ACCOUNT_TYPES.find(t => t.id === la.type)?.kind || 'asset',
+          isSupabase: false,
+          kind,
           saldoInicial: Number(la.balance || 0),
           movements: movementsByAccount[la.name] || 0,
-          balance: Number(la.balance || 0) + (movementsByAccount[la.name] || 0),
+          balance,
+          debt: kind === 'liability' ? Math.max(0, -balance) : 0,
           hasSaldoInicial: Number(la.balance || 0) !== 0,
           includeInNetWorth: la.includeInNetWorth ?? true,
         });
@@ -147,16 +187,28 @@ export function useAccounts(transactions = []) {
       .reduce((s, a) => s + a.balance, 0);
     const liabilities = included
       .filter(a => a.kind === 'liability')
-      .reduce((s, a) => s + Math.abs(a.balance), 0);
+      .reduce((s, a) => s + a.debt, 0);
     return { assets, liabilities, netWorth: assets - liabilities };
   }, [accounts]);
 
-  const addAccount = useCallback((data) => {
+  // patch del frontend → columnas de finanzas_personales_cuentas
+  const toDbPatch = (patch) => {
+    const db = {};
+    if (patch.name !== undefined) db.nombre = patch.name;
+    if (patch.type !== undefined) db.tipo_cuenta = toDbTipo(patch.type);
+    if (patch.saldoInicial !== undefined) db.saldo_inicial = Number(patch.saldoInicial) || 0;
+    if (patch.institution !== undefined) db.institucion = patch.institution;
+    if (patch.includeInNetWorth !== undefined) db.incluir_patrimonio = !!patch.includeInNetWorth;
+    if (patch.currency !== undefined) db.moneda = patch.currency;
+    return db;
+  };
+
+  const addLocalAccount = useCallback((data) => {
     const acc = {
       id: Date.now() + Math.random(),
       name: data.name,
       type: data.type || 'checking',
-      balance: Number(data.balance) || 0,
+      balance: Number(data.saldoInicial ?? data.balance) || 0,
       institution: data.institution || '',
       currency: data.currency || 'USD',
       includeInNetWorth: data.includeInNetWorth ?? true,
@@ -167,15 +219,58 @@ export function useAccounts(transactions = []) {
     return acc;
   }, [localAccounts]);
 
-  const updateAccount = useCallback((id, patch) => {
-    const next = localAccounts.map(a => a.id === id ? { ...a, ...patch } : a);
-    setLocalAccounts(next); saveLocal(next);
-  }, [localAccounts]);
+  const addAccount = useCallback(async (data) => {
+    setWriteError(null);
+    if (supabase) {
+      const { error } = await supabase.from(CUENTAS_TABLE).insert([{
+        nombre: data.name,
+        tipo_cuenta: toDbTipo(data.type || 'checking'),
+        saldo_inicial: Number(data.saldoInicial ?? data.balance) || 0,
+        institucion: data.institution || '',
+        incluir_patrimonio: data.includeInNetWorth ?? true,
+        moneda: data.currency || 'USD',
+        activa: true,
+      }]);
+      if (!error) {
+        await fetchSbAccounts();
+        return;
+      }
+      handleWriteError(error);
+    }
+    // fallback: guardar en localStorage para no perder el dato
+    addLocalAccount(data);
+  }, [addLocalAccount, fetchSbAccounts, handleWriteError]);
 
-  const removeAccount = useCallback((id) => {
+  const updateAccount = useCallback(async (id, patch) => {
+    setWriteError(null);
+    const isSb = sbAccounts.some(a => a.id === id);
+    if (isSb && supabase) {
+      const db = toDbPatch(patch);
+      if (Object.keys(db).length === 0) return;
+      const { error } = await supabase.from(CUENTAS_TABLE).update(db).eq('id', id);
+      if (error) { handleWriteError(error); return; }
+      await fetchSbAccounts();
+      return;
+    }
+    const next = localAccounts.map(a => a.id === id
+      ? { ...a, ...patch, ...(patch.saldoInicial !== undefined ? { balance: Number(patch.saldoInicial) || 0 } : {}) }
+      : a);
+    setLocalAccounts(next); saveLocal(next);
+  }, [sbAccounts, localAccounts, fetchSbAccounts, handleWriteError]);
+
+  // Soft-delete: nunca .delete() — no existen policies de DELETE por diseño
+  const removeAccount = useCallback(async (id) => {
+    setWriteError(null);
+    const isSb = sbAccounts.some(a => a.id === id);
+    if (isSb && supabase) {
+      const { error } = await supabase.from(CUENTAS_TABLE).update({ activa: false }).eq('id', id);
+      if (error) { handleWriteError(error); return; }
+      await fetchSbAccounts();
+      return;
+    }
     const next = localAccounts.filter(a => a.id !== id);
     setLocalAccounts(next); saveLocal(next);
-  }, [localAccounts]);
+  }, [sbAccounts, localAccounts, fetchSbAccounts, handleWriteError]);
 
   useEffect(() => {
     if (accounts.length === 0) return;
@@ -194,5 +289,5 @@ export function useAccounts(transactions = []) {
     }
   }, [totals.netWorth, totals.assets, totals.liabilities, accounts.length]);
 
-  return { accounts, addAccount, updateAccount, removeAccount, totals, history, sbError };
+  return { accounts, addAccount, updateAccount, removeAccount, totals, history, sbError, writeError };
 }
