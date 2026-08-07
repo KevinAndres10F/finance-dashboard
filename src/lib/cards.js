@@ -30,18 +30,22 @@ function looksLikeCardPayment(tx, cardNames) {
 }
 
 /**
+ * Reparte las transacciones del período en consumo con tarjeta, pago de
+ * tarjeta y gasto directo. Devuelve las transacciones además de los totales
+ * para poder desglosarlas al hacer clic en una métrica.
+ *
  * @param {Array} transactions transacciones ya filtradas por período
  * @param {Array<string>} cardNames nombres de cuentas tipo tarjeta de crédito
  */
-export function computeCardMetrics(transactions = [], cardNames = []) {
+export function classifyCardTransactions(transactions = [], cardNames = []) {
   const cards = new Set(cardNames);
   const porTarjeta = {};
-  const ensure = (name) => (porTarjeta[name] ||= { name, consumo: 0, pagos: 0, txCount: 0 });
+  const ensure = (name) => (porTarjeta[name] ||= { name, consumoTxs: [], pagoTxs: [] });
 
-  let consumo = 0;
-  let pagos = 0;
-  let gastoDirecto = 0;
-  let pagosSinConfirmar = 0;
+  const consumoTxs = [];
+  const pagoTxs = [];
+  const directoTxs = [];
+  const sinConfirmarTxs = [];
   const seen = new Set();
 
   for (const t of transactions) {
@@ -63,14 +67,13 @@ export function computeCardMetrics(transactions = [], cardNames = []) {
         const key = t.traspaso_id ? `p:${t.traspaso_id}` : `s:${t.id}`;
         if (!seen.has(key)) {
           seen.add(key);
-          const amount = Math.abs(monto);
-          pagos += amount;
-          if (probable) pagosSinConfirmar += amount;
+          pagoTxs.push(t);
+          if (probable) sinConfirmarTxs.push(t);
           // Sin contraparte se intenta identificar la tarjeta por el texto
           const target = isCardAccount
             ? t.Cuenta
             : (contraparte || cardFromText(t, cardNames) || 'Sin identificar');
-          ensure(target).pagos += amount;
+          ensure(target).pagoTxs.push(t);
         }
       }
       // Un traspaso nunca es consumo
@@ -78,24 +81,41 @@ export function computeCardMetrics(transactions = [], cardNames = []) {
     }
 
     if (monto < 0 || t.Tipo === 'Gasto') {
-      const amount = Math.abs(monto);
       if (isCardAccount) {
-        consumo += amount;
-        const e = ensure(t.Cuenta);
-        e.consumo += amount;
-        e.txCount += 1;
+        consumoTxs.push(t);
+        ensure(t.Cuenta).consumoTxs.push(t);
       } else {
-        gastoDirecto += amount;
+        directoTxs.push(t);
       }
     }
   }
 
+  return { consumoTxs, pagoTxs, directoTxs, sinConfirmarTxs, porTarjeta };
+}
+
+const sumAbs = (txs) => txs.reduce((a, t) => a + Math.abs(Number(t.Monto) || 0), 0);
+
+export function computeCardMetrics(transactions = [], cardNames = []) {
+  const c = classifyCardTransactions(transactions, cardNames);
+
   return {
-    consumo,
-    pagos,
-    pagosSinConfirmar,
-    gastoDirecto,
-    porTarjeta: Object.values(porTarjeta).sort((a, b) => (b.consumo + b.pagos) - (a.consumo + a.pagos)),
+    consumo: sumAbs(c.consumoTxs),
+    pagos: sumAbs(c.pagoTxs),
+    pagosSinConfirmar: sumAbs(c.sinConfirmarTxs),
+    gastoDirecto: sumAbs(c.directoTxs),
+    consumoTxs: c.consumoTxs,
+    pagoTxs: c.pagoTxs,
+    directoTxs: c.directoTxs,
+    porTarjeta: Object.values(c.porTarjeta)
+      .map(e => ({
+        name: e.name,
+        consumo: sumAbs(e.consumoTxs),
+        pagos: sumAbs(e.pagoTxs),
+        txCount: e.consumoTxs.length,
+        consumoTxs: e.consumoTxs,
+        pagoTxs: e.pagoTxs,
+      }))
+      .sort((a, b) => (b.consumo + b.pagos) - (a.consumo + a.pagos)),
     hasCards: cardNames.length > 0,
   };
 }

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Card } from './ui/Card';
 import { cn, fmtMoney, isTransferTx } from '../lib/utils';
 import { useSettings } from '../hooks/useSettings';
@@ -17,8 +17,9 @@ import {
   TrendingUp, TrendingDown, Wallet, PiggyBank, Calendar, Zap,
   ArrowUp, ArrowDown, AlertTriangle, CheckCircle2, MinusCircle,
   ShoppingBag, CreditCard, Banknote, Activity, Target, BarChart3, Repeat,
-  ToggleLeft, ToggleRight, Receipt, Info
+  ToggleLeft, ToggleRight, Receipt, Info, ChevronRight
 } from 'lucide-react';
+import { TransactionDrilldown } from './TransactionDrilldown';
 import { motion } from 'framer-motion';
 
 /* ── Paleta de colores ───────────────────────────────────────── */
@@ -40,7 +41,7 @@ function CustomTooltip({ active, payload, label, prefix = '$' }) {
 }
 
 /* ── KPI Card ────────────────────────────────────────────────── */
-function KpiCard({ title, value, sub, icon: Icon, iconBg, valueClass, trend, trendValue, delay = 0 }) {
+function KpiCard({ title, value, sub, icon: Icon, iconBg, valueClass, trend, trendValue, delay = 0, onClick }) {
   // Los montos largos ($11,100.00) no caben a tamaño completo en la tarjeta;
   // se baja un escalón para que nunca se trunquen ni se partan en dos líneas.
   const isLong = String(value).length > 9;
@@ -49,8 +50,15 @@ function KpiCard({ title, value, sub, icon: Icon, iconBg, valueClass, trend, tre
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay }}
+      className="h-full"
     >
-      <Card className="p-4 sm:p-5 h-full">
+      <Card
+        onClick={onClick}
+        role={onClick ? 'button' : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
+        className={cn('p-4 sm:p-5 h-full', onClick && 'cursor-pointer group')}
+      >
         <div className="flex items-start justify-between gap-2 sm:gap-3">
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1 truncate">{title}</p>
@@ -62,8 +70,11 @@ function KpiCard({ title, value, sub, icon: Icon, iconBg, valueClass, trend, tre
             </p>
             {sub && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">{sub}</p>}
           </div>
-          <div className={cn('p-2 sm:p-2.5 rounded-xl shrink-0', iconBg || 'bg-slate-100 dark:bg-slate-800')}>
+          <div className={cn('p-2 sm:p-2.5 rounded-xl shrink-0 relative', iconBg || 'bg-slate-100 dark:bg-slate-800')}>
             <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+            {onClick && (
+              <ChevronRight className="w-3 h-3 absolute -bottom-1 -right-1 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+            )}
           </div>
         </div>
         {trend !== undefined && (
@@ -143,7 +154,7 @@ function RecentTx({ tx }) {
 }
 
 /* ── Panel de tarjetas de crédito ────────────────────────────── */
-function CreditCardPanel({ metrics, series, totalExpenses, currency, periodLabel }) {
+function CreditCardPanel({ metrics, series, totalExpenses, currency, periodLabel, onDrill }) {
   const fmt = (n) => fmtMoney(n, currency);
   const pctTarjeta = totalExpenses > 0 ? (metrics.consumo / totalExpenses) * 100 : 0;
   const diferencia = metrics.consumo - metrics.pagos;
@@ -162,7 +173,8 @@ function CreditCardPanel({ metrics, series, totalExpenses, currency, periodLabel
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-        <div className="rounded-xl border border-indigo-200/60 dark:border-indigo-700/30 bg-indigo-50/60 dark:bg-indigo-900/20 p-3">
+        <div onClick={() => onDrill?.('Consumo con tarjeta', metrics.consumoTxs)}
+          className="rounded-xl border border-indigo-200/60 dark:border-indigo-700/30 bg-indigo-50/60 dark:bg-indigo-900/20 p-3 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">
           <p className="text-xs font-medium text-indigo-700 dark:text-indigo-400 mb-1">Consumo con tarjeta</p>
           <p className="text-xl font-bold text-indigo-800 dark:text-indigo-300 break-words">{fmt(metrics.consumo)}</p>
           <p className="text-[11px] text-indigo-600/80 dark:text-indigo-400/80 mt-1">
@@ -170,7 +182,8 @@ function CreditCardPanel({ metrics, series, totalExpenses, currency, periodLabel
           </p>
         </div>
 
-        <div className="rounded-xl border border-slate-200/70 dark:border-white/10 bg-slate-50/70 dark:bg-slate-800/40 p-3">
+        <div onClick={() => onDrill?.('Pago de tarjetas', metrics.pagoTxs)}
+          className="rounded-xl border border-slate-200/70 dark:border-white/10 bg-slate-50/70 dark:bg-slate-800/40 p-3 cursor-pointer hover:bg-slate-100/70 dark:hover:bg-slate-800/60 transition-colors">
           <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Pago de tarjetas</p>
           <p className="text-xl font-bold text-slate-800 dark:text-slate-200 break-words">{fmt(metrics.pagos)}</p>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
@@ -179,7 +192,8 @@ function CreditCardPanel({ metrics, series, totalExpenses, currency, periodLabel
           </p>
         </div>
 
-        <div className="rounded-xl border border-emerald-200/60 dark:border-emerald-700/30 bg-emerald-50/60 dark:bg-emerald-900/20 p-3">
+        <div onClick={() => onDrill?.('Gasto directo (débito y efectivo)', metrics.directoTxs)}
+          className="rounded-xl border border-emerald-200/60 dark:border-emerald-700/30 bg-emerald-50/60 dark:bg-emerald-900/20 p-3 cursor-pointer hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors">
           <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-1">Gasto directo</p>
           <p className="text-xl font-bold text-emerald-800 dark:text-emerald-300 break-words">{fmt(metrics.gastoDirecto)}</p>
           <p className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80 mt-1">
@@ -209,7 +223,9 @@ function CreditCardPanel({ metrics, series, totalExpenses, currency, periodLabel
           <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">Por tarjeta</p>
           <div className="space-y-2">
             {metrics.porTarjeta.map(c => (
-              <div key={c.name} className="flex items-center justify-between gap-2 py-2 border-b border-slate-100/80 dark:border-slate-700/40 last:border-0">
+              <div key={c.name}
+                onClick={() => onDrill?.(`${c.name} · consumo`, c.consumoTxs)}
+                className="flex items-center justify-between gap-2 py-2 border-b border-slate-100/80 dark:border-slate-700/40 last:border-0 cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/40 rounded-lg px-1 -mx-1 transition-colors">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{c.name}</p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -339,12 +355,24 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
     const incomeChange   = hasPrev && prevIncome   > 0 ? ((income   - prevIncome)   / prevIncome)   * 100 : null;
     const expenseChange  = hasPrev && prevExpenses > 0 ? ((expenses - prevExpenses) / prevExpenses) * 100 : null;
 
-    /* Gastos por categoría en el período */
-    const byCat = monthTxs
-      .filter(t => t.Tipo === 'Gasto' || t.Monto < 0)
-      .reduce((a, t) => { const c = t.Categoría || 'Otros'; a[c] = (a[c] || 0) + Math.abs(Number(t.Monto)); return a; }, {});
-    const topCategories = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 7)
-      .map(([name, value], i) => ({ name, value, color: categoryColorMap[name] || PALETTE[i % PALETTE.length] }));
+    const incomeTxs  = monthTxs.filter(t => t.Tipo === 'Ingreso' || t.Monto > 0);
+    const expenseTxs = monthTxs.filter(t => t.Tipo === 'Gasto'   || t.Monto < 0);
+
+    /* Gastos por categoría en el período (con sus transacciones, para el detalle) */
+    const byCat = expenseTxs.reduce((a, t) => {
+      const c = t.Categoría || 'Otros';
+      (a[c] ||= { total: 0, txs: [] });
+      a[c].total += Math.abs(Number(t.Monto));
+      a[c].txs.push(t);
+      return a;
+    }, {});
+    const topCategories = Object.entries(byCat)
+      .sort((a, b) => b[1].total - a[1].total)
+      .slice(0, 7)
+      .map(([name, v], i) => ({
+        name, value: v.total, txs: v.txs,
+        color: categoryColorMap[name] || PALETTE[i % PALETTE.length],
+      }));
 
     /* Balance por cuenta — usa accounts de useAccounts (saldo_inicial + movimientos) */
 
@@ -405,6 +433,7 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
       income, expenses, balance, savingsRate, dailyAvg, projection, monthlyAvg,
       remainingBudget, daysLeft, daysInMonth, dayOfMonth,
       incomeChange, expenseChange, prevIncome, prevExpenses,
+      periodTxs: monthTxs, incomeTxs, expenseTxs,
       topCategories, accountMonthly,
       monthlyTrend, weeklyTrend, recentTxs,
       totalBudgets, goodBudgets, budgetHealth, biggestExpense,
@@ -414,6 +443,11 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
 
   const fmt = (n) => fmtMoney(n, C);
   const scope = isThisMonth ? 'del Mes' : 'del período';
+
+  /* Detalle de transacciones detrás de cada métrica */
+  const [drill, setDrill] = useState(null);
+  const openDrill = (title, transactions, subtitle = period.label) =>
+    setDrill({ title, transactions, subtitle });
   const upcomingCount = subs.upcomingBills.length;
   const upcomingNext = subs.upcomingBills.slice(0, 5);
   const netWorth = accountTotals.netWorth - debtTotals.totalBalance;
@@ -502,6 +536,7 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
           delay={0}
           title={`Balance ${scope}`}
           value={fmt(metrics.balance)}
+          onClick={() => openDrill(`Balance ${scope}`, metrics.periodTxs)}
           icon={Wallet}
           iconBg={metrics.balance >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600'}
           valueClass={metrics.balance >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}
@@ -510,6 +545,7 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
           delay={0.05}
           title={`Ingresos ${scope}`}
           value={fmt(metrics.income)}
+          onClick={() => openDrill(`Ingresos ${scope}`, metrics.incomeTxs)}
           icon={TrendingUp}
           iconBg="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600"
           valueClass="text-emerald-700 dark:text-emerald-400"
@@ -520,6 +556,7 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
           delay={0.1}
           title={`Gastos ${scope}`}
           value={fmt(metrics.expenses)}
+          onClick={() => openDrill(`Gastos ${scope}`, metrics.expenseTxs)}
           icon={TrendingDown}
           iconBg="bg-rose-50 dark:bg-rose-900/30 text-rose-600"
           valueClass="text-rose-700 dark:text-rose-400"
@@ -530,6 +567,7 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
           delay={0.15}
           title="Tasa de Ahorro"
           value={`${metrics.savingsRate.toFixed(1)}%`}
+          onClick={() => openDrill('Ingresos y gastos', metrics.periodTxs)}
           icon={PiggyBank}
           iconBg={metrics.savingsRate >= 20 ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600' : metrics.savingsRate > 0 ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-600' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600'}
           valueClass={metrics.savingsRate >= 20 ? 'text-indigo-700 dark:text-indigo-400' : metrics.savingsRate > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-rose-700 dark:text-rose-400'}
@@ -545,6 +583,7 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
               delay={0.2}
               title="Gasto Diario Promedio"
               value={fmt(metrics.dailyAvg)}
+              onClick={() => openDrill('Gastos del mes', metrics.expenseTxs)}
               icon={Calendar}
               iconBg="bg-blue-50 dark:bg-blue-900/30 text-blue-600"
               sub={`Día ${metrics.dayOfMonth} de ${metrics.daysInMonth}`}
@@ -553,6 +592,7 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
               delay={0.25}
               title="Proyección Mensual"
               value={fmt(metrics.projection)}
+              onClick={() => openDrill('Gastos del mes', metrics.expenseTxs)}
               icon={BarChart3}
               iconBg="bg-violet-50 dark:bg-violet-900/30 text-violet-600"
               sub={`${metrics.daysLeft} días restantes`}
@@ -564,6 +604,7 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
               delay={0.2}
               title="Gasto Mensual Prom."
               value={fmt(metrics.monthlyAvg)}
+              onClick={() => openDrill(`Gastos ${scope}`, metrics.expenseTxs)}
               icon={Calendar}
               iconBg="bg-blue-50 dark:bg-blue-900/30 text-blue-600"
               sub={`${months} mes${months !== 1 ? 'es' : ''} en el período`}
@@ -572,6 +613,7 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
               delay={0.25}
               title="Ingreso Mensual Prom."
               value={fmt(months > 0 ? metrics.income / months : metrics.income)}
+              onClick={() => openDrill(`Ingresos ${scope}`, metrics.incomeTxs)}
               icon={BarChart3}
               iconBg="bg-violet-50 dark:bg-violet-900/30 text-violet-600"
               sub={period.label}
@@ -582,6 +624,7 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
           delay={0.3}
           title="Disponible"
           value={fmt(Math.max(0, metrics.remainingBudget))}
+          onClick={() => openDrill('Ingresos y gastos', metrics.periodTxs)}
           icon={Banknote}
           iconBg="bg-teal-50 dark:bg-teal-900/30 text-teal-600"
           valueClass="text-teal-700 dark:text-teal-400"
@@ -591,6 +634,7 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
           delay={0.35}
           title="Transacciones"
           value={metrics.totalTxCount}
+          onClick={() => openDrill('Todas las transacciones', metrics.periodTxs)}
           icon={Activity}
           iconBg="bg-slate-100 dark:bg-slate-800 text-slate-600"
           sub={metrics.biggestExpense ? `Mayor: ${fmt(Math.abs(Number(metrics.biggestExpense.Monto)))}` : period.label}
@@ -605,6 +649,7 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
           totalExpenses={metrics.expenses}
           currency={C}
           periodLabel={period.label}
+          onDrill={openDrill}
         />
       )}
 
@@ -674,7 +719,10 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
           {metrics.topCategories.length > 0 ? (
             <div className="space-y-3">
               {metrics.topCategories.map((c, i) => (
-                <CategoryBar key={c.name} name={c.name} amount={c.value} total={metrics.expenses} color={c.color} rank={i + 1} />
+                <div key={c.name} onClick={() => openDrill(`Gastos · ${c.name}`, c.txs)}
+                  className="cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/40 rounded-lg px-1 -mx-1 py-0.5 transition-colors">
+                  <CategoryBar name={c.name} amount={c.value} total={metrics.expenses} color={c.color} rank={i + 1} />
+                </div>
               ))}
             </div>
           ) : (
@@ -690,7 +738,9 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
           </div>
           <div className="space-y-3">
             {accounts.length > 0 ? accounts.map(acc => (
-              <div key={acc.id} className="flex items-center justify-between py-2 border-b border-slate-100/80 dark:border-slate-700/40 last:border-0">
+              <div key={acc.id}
+                onClick={() => openDrill(`${acc.name} · movimientos`, metrics.periodTxs.filter(t => t.Cuenta === acc.name))}
+                className="flex items-center justify-between py-2 border-b border-slate-100/80 dark:border-slate-700/40 last:border-0 cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/40 rounded-lg px-1 -mx-1 transition-colors">
                 <div className="flex items-center gap-2 min-w-0">
                   <div className={cn('w-2 h-2 rounded-full shrink-0',
                     acc.kind === 'liability' ? 'bg-amber-500' : acc.balance >= 0 ? 'bg-emerald-500' : 'bg-rose-500')} />
@@ -772,6 +822,16 @@ export function Dashboard({ transactions, budgetData, categoryColorMap = {}, exc
           <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-6">No hay transacciones aún</p>
         )}
       </Card>
+
+      {/* Detalle de la métrica seleccionada */}
+      <TransactionDrilldown
+        open={!!drill}
+        title={drill?.title || ''}
+        subtitle={drill?.subtitle}
+        transactions={drill?.transactions || []}
+        currency={C}
+        onClose={() => setDrill(null)}
+      />
 
     </div>
   );
